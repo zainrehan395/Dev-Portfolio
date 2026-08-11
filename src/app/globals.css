@@ -1,26 +1,179 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --deep: #798777;
+  --surface: #f8ede3;
+  --sage: #bdd2b6;
+  --muted: #bdd2b6;
+  --cream: #f8ede3;
+
+  --ink: var(--deep);
+  --paper: var(--deep);
+  --fog: var(--sage);
+  --accent: var(--sage);
+  --accent-deep: #a8c4a0;
+  --signal: var(--sage);
+  --signal-soft: color-mix(in srgb, var(--sage) 55%, var(--surface));
+  --line: color-mix(in srgb, var(--deep) 28%, var(--surface));
+  --on-accent: var(--deep);
+  --background: var(--paper);
+  --foreground: var(--cream);
+
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-fog: var(--fog);
+  --color-surface: var(--surface);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-signal: var(--signal);
+  --color-signal-soft: var(--signal-soft);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-on-accent: var(--on-accent);
+  --color-deep: var(--deep);
+  --color-cream: var(--cream);
+  --color-sage: var(--sage);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--sage) 55%, transparent);
+  color: var(--deep);
+}
+
+a,
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--sage);
+  outline-offset: 3px;
+}
+
+.atmosphere {
+  background-color: var(--foreground);
+}
+
+.grid-mesh {
+  background-image:
+    linear-gradient(rgba(248, 237, 227, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(248, 237, 227, 0.12) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 40%, black 20%, transparent 75%);
+}
+
+.font-display {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.perspective-scene {
+  perspective: 1200px;
+  perspective-origin: 50% 45%;
+  transform-style: preserve-3d;
+}
+
+.will-3d {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.liquid-glass {
+  background: linear-gradient(
+    145deg,
+    rgba(248, 237, 227, 0.42) 0%,
+    rgba(189, 210, 182, 0.28) 45%,
+    rgba(121, 135, 119, 0.38) 100%
+  );
+  backdrop-filter: blur(22px) saturate(165%);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  border: 1px solid rgba(248, 237, 227, 0.55);
+ 
+}
+
+.liquid-glass-item {
+  background: linear-gradient(
+    160deg,
+    rgba(248, 237, 227, 0.5) 0%,
+    rgba(189, 210, 182, 0.35) 100%
+  );
+  border: 1px solid rgba(248, 237, 227, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 8px rgba(121, 135, 119, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+@keyframes skillIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) rotateX(12deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg);
+  }
+}
+
+.skill-chip {
+  animation-name: skillIn;
+  animation-duration: 0.45s;
+  animation-timing-function: var(--ease-out);
+  animation-fill-mode: both;
+  transform-style: preserve-3d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skill-chip {
+    animation: none;
+  }
 }
