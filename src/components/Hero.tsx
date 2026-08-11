@@ -1,22 +1,14 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { profile } from "@/lib/data";
+import ProfileCard from "@/components/ProfileCard";
 
-gsap.registerPlugin(ScrollTrigger);
-
-const HeroCanvas = dynamic(() => import("@/components/hero/HeroCanvas"), {
-  ssr: false,
-  loading: () => <div className="absolute inset-0 bg-deep" aria-hidden="true" />,
-});
+const stack = ["React.js", "Next.js", "TypeScript", "Node.js", "AWS"];
 
 export function Hero() {
   const rootRef = useRef<HTMLElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const boardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -29,50 +21,17 @@ export function Hero() {
       if (cancelled || !rootRef.current) return;
 
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduce) return;
 
       ctx = gsap.context(() => {
         gsap.from(".hero-anim", {
-          y: 36,
+          y: 20,
           opacity: 0,
-          rotateX: 24,
-          transformPerspective: 800,
-          duration: 0.95,
-          stagger: 0.12,
-          ease: "power3.out",
-          delay: 0.08,
+          duration: 0.7,
+          stagger: 0.08,
+          ease: "power2.out",
+          delay: 0.05,
         });
-
-        if (reduce) return;
-
-        if (contentRef.current) {
-          gsap.to(contentRef.current, {
-            yPercent: -18,
-            rotateX: 12,
-            scale: 0.94,
-            opacity: 0.35,
-            ease: "none",
-            scrollTrigger: {
-              trigger: root,
-              start: "top top",
-              end: "bottom top",
-              scrub: 0.8,
-            },
-          });
-        }
-
-        if (boardRef.current) {
-          gsap.to(boardRef.current, {
-            yPercent: 8,
-            scale: 1.06,
-            ease: "none",
-            scrollTrigger: {
-              trigger: root,
-              start: "top top",
-              end: "bottom top",
-              scrub: true,
-            },
-          });
-        }
       }, root);
     };
 
@@ -93,47 +52,79 @@ export function Hero() {
     <section
       id="top"
       ref={rootRef}
-      className="relative flex min-h-[100svh] items-end overflow-hidden bg-deep pb-28 pt-20 sm:pb-32 sm:pt-24"
-      style={{ perspective: "1200px" }}
+      className="relative flex min-h-[100dvh] items-center overflow-hidden bg-deep pb-28 pt-24 sm:pb-32 sm:pt-28"
     >
-      <div ref={boardRef} className="absolute inset-0 will-3d">
-        <HeroCanvas eventSource={rootRef} />
-        <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-deep via-deep/35 to-deep/15"
-          aria-hidden="true"
-        />
-      </div>
-
       <div
-        ref={contentRef}
-        className="relative z-10 mx-auto w-full max-w-6xl px-5 will-3d sm:px-8"
-        style={{ transformOrigin: "50% 100%" }}
-      >
-        <p className="hero-anim font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-          {profile.role} · {profile.years} years
-        </p>
+        className="pointer-events-none absolute inset-0"
+        aria-hidden="true"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 55% at 15% 85%, color-mix(in srgb, var(--sage) 28%, transparent), transparent 58%), radial-gradient(ellipse 60% 45% at 92% 8%, color-mix(in srgb, var(--surface) 80%, transparent), transparent 55%)",
+        }}
+      />
 
-        <h1 className="hero-anim mt-4 font-display text-[clamp(3.5rem,14vw,8.5rem)] font-extrabold leading-[0.88] tracking-[-0.04em] text-cream">
-          {profile.name}
-        </h1>
+      <div className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,1fr)] lg:gap-10 xl:gap-14">
+        <div className="min-w-0">
+          <h1 className="hero-anim font-display text-[clamp(3rem,12vw,6.5rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-cream">
+            {profile.name}
+          </h1>
 
-        <p className="hero-anim mt-6 max-w-xl text-lg leading-relaxed text-muted sm:text-xl">
-          {profile.tagline}
-        </p>
+          <p className="hero-anim mt-5 max-w-2xl font-display text-2xl font-semibold tracking-tight text-cream sm:text-3xl">
+            I build things for the web.
+          </p>
 
-        <div className="hero-anim mt-10 flex flex-wrap items-center gap-4">
-          <a
-            href="#book"
-            className="inline-flex min-h-12 items-center bg-cream px-6 text-base font-semibold text-deep transition-colors duration-200 hover:bg-sage"
-          >
-            Book a discovery call
-          </a>
-          <a
-            href="#work"
-            className="inline-flex min-h-12 items-center border border-cream/40 bg-deep/20 px-6 text-base font-medium text-cream backdrop-blur-sm transition-colors duration-200 hover:border-cream hover:bg-cream hover:text-deep"
-          >
-            View experience
-          </a>
+          <p className="hero-anim mt-5 max-w-2xl text-base leading-relaxed text-sage sm:text-lg">
+            I&apos;m a Full-Stack Software Engineer focused on creating scalable, performant, and
+            user-focused applications with React, Next.js, Node.js, and AWS.
+          </p>
+
+          <p className="hero-anim mt-4 max-w-2xl text-base leading-relaxed text-cream/70 sm:text-lg">
+            I enjoy taking products from idea → architecture → development → deployment, while
+            keeping the experience fast, clean, and intuitive.
+          </p>
+
+          <div className="hero-anim mt-8">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-sage">
+              Currently working with
+            </p>
+            <p className="mt-2 max-w-2xl text-sm text-cream/85 sm:text-base">
+              {stack.join(" · ")}
+            </p>
+          </div>
+
+          <div className="hero-anim mt-9 flex flex-wrap items-center gap-3">
+            <a
+              href="#book"
+              className="liquid-glass-btn-solid inline-flex min-h-12 items-center rounded-xl px-6 text-base font-semibold"
+            >
+              Let&apos;s Work Together
+            </a>
+            <a
+              href="#work"
+              className="liquid-glass-btn inline-flex min-h-12 items-center rounded-xl px-6 text-base font-medium"
+            >
+              View My Work
+            </a>
+          </div>
+        </div>
+
+        <div className="hero-anim flex justify-center lg:justify-end">
+          <ProfileCard
+            name={profile.fullName}
+            title={profile.role}
+            handle="/in/zain-rehan/"
+            status="Available"
+            contactText="Contact Me"
+            avatarUrl="/avatar.png"
+            iconUrl="/assets/iconpattern.png"
+            showUserInfo
+            enableTilt
+            enableMobileTilt={false}
+            behindGlowEnabled
+            behindGlowColor="rgba(102, 114, 107, 0.55)"
+            innerGradient="linear-gradient(145deg,#363f3a8c 0%,#66726b55 100%)"
+            className="w-full max-w-[420px] sm:max-w-[460px] lg:max-w-[500px]"
+          />
         </div>
       </div>
     </section>

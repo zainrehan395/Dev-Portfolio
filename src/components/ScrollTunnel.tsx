@@ -154,20 +154,20 @@ export function ScrollTunnel() {
             Frontend to delivery — the layers I own when shipping production
             systems.
           </p>
-          <ul className="mt-12 grid gap-4 sm:grid-cols-2">
+          <ul className="mt-12 grid gap-3 sm:grid-cols-2">
             {panels.map((panel) => (
               <li
                 key={panel.title}
-                className="flex flex-col justify-between border border-cream/15 bg-surface p-6"
+                className="liquid-glass-panel flex flex-col justify-between p-6"
               >
-                <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-deep/65">
+                <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-sage">
                   {panel.tag}
                 </span>
                 <div className="mt-6">
-                  <h3 className="font-display text-3xl font-bold tracking-tight text-deep">
+                  <h3 className="font-display text-3xl font-bold tracking-tight text-cream">
                     {panel.title}
                   </h3>
-                  <p className="mt-3 text-sm leading-relaxed text-deep/75">
+                  <p className="mt-3 text-sm leading-relaxed text-cream/75">
                     {panel.copy}
                   </p>
                 </div>
@@ -200,7 +200,7 @@ export function ScrollTunnel() {
             className="absolute inset-0"
             style={{
               background:
-                "radial-gradient(ellipse 45% 50% at 62% 50%, rgba(189,210,182,0.28), transparent 68%)",
+                "radial-gradient(ellipse 45% 50% at 62% 50%, color-mix(in srgb, var(--sage) 22%, transparent), transparent 68%)",
             }}
           />
         </div>
@@ -261,7 +261,7 @@ export function ScrollTunnel() {
                 {active.stack.map((item) => (
                   <span
                     key={item}
-                    className="border border-cream/20 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream/80"
+                    className="liquid-glass-item rounded-lg px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream/90"
                   >
                     {item}
                   </span>
@@ -320,16 +320,16 @@ export function ScrollTunnel() {
               {panels.map((panel) => (
                 <Card
                   key={panel.title}
-                  customClass="flex cursor-pointer flex-col justify-between p-7 sm:p-9 shadow-[0_20px_50px_rgba(0,0,0,0.16)]"
+                  customClass="flex cursor-pointer flex-col justify-between p-7 sm:p-9"
                 >
-                  <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-deep/65">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-sage">
                     {panel.tag}
                   </span>
                   <div>
-                    <h3 className="font-display text-4xl font-bold tracking-tight text-deep sm:text-5xl">
+                    <h3 className="font-display text-4xl font-bold tracking-tight text-cream sm:text-5xl">
                       {panel.title}
                     </h3>
-                    <p className="mt-3 max-w-md text-base leading-relaxed text-deep/75">
+                    <p className="mt-3 max-w-md text-base leading-relaxed text-cream/75">
                       {panel.copy}
                     </p>
                   </div>

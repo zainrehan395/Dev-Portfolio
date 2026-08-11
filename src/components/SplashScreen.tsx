@@ -75,8 +75,8 @@ export function SplashScreen() {
       <div className="relative w-[min(92vw,720px)] px-4">
         <StrokeText
           text={profile.fullName}
-          strokeColor="#BDD2B6"
-          fillColor="#F8EDE3"
+          strokeColor="#66726B"
+          fillColor="#E6EAE7"
           strokeWidth={1.4}
           drawDuration={DRAW_DURATION}
           fillDelay={FILL_DELAY}

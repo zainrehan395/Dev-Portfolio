@@ -72,7 +72,7 @@ export function ArchitectureBoard() {
           top: `${cursor.y}%`,
           transform: "translate(-50%, -50%)",
           background:
-            "radial-gradient(circle, rgba(189,210,182,0.45) 0%, transparent 70%)",
+            "radial-gradient(circle, color-mix(in srgb, var(--sage) 40%, transparent) 0%, transparent 70%)",
         }}
         aria-hidden="true"
       />

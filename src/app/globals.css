@@ -1,21 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --deep: #798777;
-  --surface: #f8ede3;
-  --sage: #bdd2b6;
-  --muted: #bdd2b6;
-  --cream: #f8ede3;
+  /* Brand palette (attached) */
+  --deep: #212d2d;
+  --surface: #363f3a;
+  --olive: #40423b;
+  --sage: #66726b;
+  /* Readable mist for type / glass highlights (hue-matched to palette) */
+  --cream: #e6eae7;
 
-  --ink: var(--deep);
+  --ink: var(--cream);
   --paper: var(--deep);
   --fog: var(--sage);
   --accent: var(--sage);
-  --accent-deep: #a8c4a0;
+  --accent-deep: #55605a;
   --signal: var(--sage);
-  --signal-soft: color-mix(in srgb, var(--sage) 55%, var(--surface));
-  --line: color-mix(in srgb, var(--deep) 28%, var(--surface));
-  --on-accent: var(--deep);
+  --signal-soft: color-mix(in srgb, var(--sage) 45%, var(--deep));
+  --line: color-mix(in srgb, var(--cream) 14%, var(--deep));
+  --on-accent: var(--cream);
   --background: var(--paper);
   --foreground: var(--cream);
 
@@ -29,6 +31,17 @@
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  --glass-bg: linear-gradient(
+      145deg,
+      rgb(230 234 231 / 0.16) 0%,
+      rgb(102 114 107 / 0.12) 48%,
+      rgb(54 63 58 / 0.38) 100%
+    ),
+    rgb(54 63 58 / 0.42);
+  --glass-border: rgb(230 234 231 / 0.22);
+  --glass-highlight: inset 0 1px 0 rgb(230 234 231 / 0.28);
+  --glass-shadow: 0 12px 40px rgb(33 45 45 / 0.35);
 }
 
 @theme inline {
@@ -38,11 +51,12 @@
   --color-paper: var(--paper);
   --color-fog: var(--fog);
   --color-surface: var(--surface);
+  --color-olive: var(--olive);
   --color-accent: var(--accent);
   --color-accent-deep: var(--accent-deep);
   --color-signal: var(--signal);
   --color-signal-soft: var(--signal-soft);
-  --color-muted: var(--muted);
+  --color-muted: var(--sage);
   --color-line: var(--line);
   --color-on-accent: var(--on-accent);
   --color-deep: var(--deep);
@@ -82,7 +96,7 @@ body {
 
 ::selection {
   background: color-mix(in srgb, var(--sage) 55%, transparent);
-  color: var(--deep);
+  color: var(--cream);
 }
 
 a,
@@ -96,13 +110,13 @@ button {
 }
 
 .atmosphere {
-  background-color: var(--foreground);
+  background-color: var(--background);
 }
 
 .grid-mesh {
   background-image:
-    linear-gradient(rgba(248, 237, 227, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(248, 237, 227, 0.12) 1px, transparent 1px);
+    linear-gradient(rgba(230, 234, 231, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(230, 234, 231, 0.08) 1px, transparent 1px);
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 75% 70% at 50% 40%, black 20%, transparent 75%);
 }
@@ -126,31 +140,139 @@ button {
   backface-visibility: hidden;
 }
 
+/* Liquid glass — web approximation (frosted panels over dark canvas) */
 .liquid-glass {
-  background: linear-gradient(
-    145deg,
-    rgba(248, 237, 227, 0.42) 0%,
-    rgba(189, 210, 182, 0.28) 45%,
-    rgba(121, 135, 119, 0.38) 100%
-  );
-  backdrop-filter: blur(22px) saturate(165%);
-  -webkit-backdrop-filter: blur(22px) saturate(165%);
-  border: 1px solid rgba(248, 237, 227, 0.55);
- 
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(22px) saturate(165%) contrast(1.05);
+  -webkit-backdrop-filter: blur(22px) saturate(165%) contrast(1.05);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 18% 0%, rgb(230 234 231 / 0.22), transparent 42%),
+    linear-gradient(90deg, rgb(230 234 231 / 0.08), transparent 45%, rgb(230 234 231 / 0.06));
+  pointer-events: none;
 }
 
 .liquid-glass-item {
+  position: relative;
+  z-index: 1;
   background: linear-gradient(
     160deg,
-    rgba(248, 237, 227, 0.5) 0%,
-    rgba(189, 210, 182, 0.35) 100%
+    rgb(230 234 231 / 0.2) 0%,
+    rgb(102 114 107 / 0.22) 100%
   );
-  border: 1px solid rgba(248, 237, 227, 0.55);
+  border: 1px solid rgb(230 234 231 / 0.28);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 2px 8px rgba(121, 135, 119, 0.12);
+    inset 0 1px 0 rgb(230 234 231 / 0.32),
+    0 2px 8px rgb(33 45 45 / 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.liquid-glass-panel {
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+
+.liquid-glass-btn {
+  border: 1px solid rgb(230 234 231 / 0.32);
+  background: linear-gradient(
+    145deg,
+    rgb(230 234 231 / 0.22),
+    rgb(102 114 107 / 0.28)
+  );
+  color: var(--cream);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgb(230 234 231 / 0.28);
+  transition:
+    background 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out),
+    transform 0.15s var(--ease-out);
+}
+
+.liquid-glass-btn:hover {
+  border-color: rgb(230 234 231 / 0.5);
+  background: linear-gradient(
+    145deg,
+    rgb(230 234 231 / 0.32),
+    rgb(102 114 107 / 0.4)
+  );
+}
+
+.liquid-glass-btn:active {
+  transform: scale(0.98);
+}
+
+.liquid-glass-btn-solid {
+  border: 1px solid rgb(230 234 231 / 0.45);
+  background: color-mix(in srgb, var(--cream) 88%, var(--sage));
+  color: var(--deep);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+  transition:
+    background 0.2s var(--ease-out),
+    transform 0.15s var(--ease-out);
+}
+
+.liquid-glass-btn-solid:hover {
+  background: var(--cream);
+}
+
+.liquid-glass-btn-solid:active {
+  transform: scale(0.98);
+}
+
+.liquid-glass-input {
+  border: 1px solid rgb(230 234 231 / 0.18);
+  background: rgb(33 45 45 / 0.45);
+  color: var(--cream);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 rgb(230 234 231 / 0.08);
+  transition: border-color 0.2s var(--ease-out);
+}
+
+.liquid-glass-input::placeholder {
+  color: rgb(230 234 231 / 0.4);
+}
+
+.liquid-glass-input:focus {
+  border-color: rgb(230 234 231 / 0.4);
+  outline: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .liquid-glass,
+  .liquid-glass-panel,
+  .liquid-glass-item,
+  .liquid-glass-btn,
+  .liquid-glass-input {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--surface);
+  }
+
+  .liquid-glass-btn-solid {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--cream);
+  }
 }
 
 @keyframes skillIn {
@@ -176,4 +298,19 @@ button {
   .skill-chip {
     animation: none;
   }
+}
+
+.name-mark-text {
+  background-image: linear-gradient(
+    90deg,
+    #e6eae7 0%,
+    #66726b 28%,
+    #40423b 55%,
+    #363f3a 78%,
+    #212d2d 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(-2px 0 12px rgba(102, 114, 107, 0.25));
 }

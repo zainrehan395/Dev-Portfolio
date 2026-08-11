@@ -8,7 +8,7 @@ const SkillsCanvas = dynamic(() => import("@/components/skills/SkillsCanvas"), {
   ssr: false,
   loading: () => (
     <div className="absolute inset-0 flex items-center justify-center bg-surface">
-      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-deep/70">
+      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-sage">
         Loading skills scene…
       </p>
     </div>
@@ -61,22 +61,19 @@ export function Skills() {
     return (
       <section id="skills" className="relative border-t border-line/80 bg-surface py-24 sm:py-32">
         <div className="mx-auto max-w-6xl px-5 sm:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-deep/70">
-            Capabilities
-          </p>
-          <h2 className="mt-3 font-display text-4xl font-bold tracking-tight text-deep sm:text-5xl">
+          <h2 className="font-display text-4xl font-bold tracking-tight text-cream sm:text-5xl">
             Tools I ship with every day
           </h2>
-          <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {skillStops.map((stop) => (
-              <li key={stop.id} className="border border-deep/15 bg-sage/40 p-5">
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-deep/65">
+              <li key={stop.id} className="liquid-glass-panel p-5">
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-sage">
                   {stop.group}
                 </span>
-                <h3 className="mt-2 font-display text-2xl font-semibold text-deep">
+                <h3 className="mt-2 font-display text-2xl font-semibold text-cream">
                   {stop.title}
                 </h3>
-                <p className="mt-3 text-sm leading-relaxed text-deep/75">{stop.copy}</p>
+                <p className="mt-3 text-sm leading-relaxed text-cream/75">{stop.copy}</p>
               </li>
             ))}
           </ul>
@@ -98,47 +95,25 @@ export function Skills() {
 
         <div className="pointer-events-none absolute inset-0 z-10">
           <div className="mx-auto flex h-full max-w-6xl flex-col justify-between px-5 py-24 sm:px-8 sm:py-28">
-            <div className=" flex flex-col gap-8 items-start">
-              <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-deep/70">
-                Capabilities · Scroll to explore
-              </p>
-              <h2 className="mt-3 font-display text-4xl font-bold tracking-tight text-deep sm:text-5xl">
-                Tools I ship with every day
-              </h2>
+            <div className="flex flex-col items-start gap-8">
+              <div className="liquid-glass-panel max-w-xl p-6 sm:p-8">
+                <h2 className="font-display text-4xl font-bold tracking-tight text-cream sm:text-5xl">
+                  Tools I ship with every day
+                </h2>
               </div>
-              <div className="max-w-lg transition-opacity duration-300">
-              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-deep/70">
-                {active.group}
-              </p>
-              <h3 className="mt-2 font-display text-5xl font-bold tracking-tight text-deep sm:text-6xl">
-                {active.title}
-              </h3>
-              <p className="mt-4 text-base leading-relaxed text-deep/80 sm:text-lg">
-                {active.copy}
-              </p>
+              <div className="liquid-glass-panel max-w-lg p-6 transition-opacity duration-300 sm:p-8">
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-sage">
+                  {active.group}
+                </p>
+                <h3 className="mt-2 font-display text-5xl font-bold tracking-tight text-cream sm:text-6xl">
+                  {active.title}
+                </h3>
+                <p className="mt-4 text-base leading-relaxed text-cream/80 sm:text-lg">
+                  {active.copy}
+                </p>
+              </div>
             </div>
-            </div>
-
-            {/* <div className="max-w-lg transition-opacity duration-300">
-              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-deep/70">
-                {active.group}
-              </p>
-              <h3 className="mt-2 font-display text-5xl font-bold tracking-tight text-deep sm:text-6xl">
-                {active.title}
-              </h3>
-              <p className="mt-4 text-base leading-relaxed text-deep/80 sm:text-lg">
-                {active.copy}
-              </p>
-            </div> */}
           </div>
-
-          {/* <span
-            className="absolute right-5 top-24 font-display text-5xl font-thin tabular-nums text-deep/20 sm:right-8 sm:top-28 sm:text-7xl md:text-8xl"
-            aria-hidden="true"
-          >
-            {progress.toFixed(2)}
-          </span> */}
         </div>
       </div>
     </section>

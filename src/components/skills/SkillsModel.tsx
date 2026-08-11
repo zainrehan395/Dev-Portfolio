@@ -6,9 +6,9 @@ import { useFrame } from "@react-three/fiber";
 import { PerspectiveCamera, useAnimations, useGLTF } from "@react-three/drei";
 
 const MODEL_URL = "/models/skills.glb";
-const BASE = new THREE.Color("#BDD2B6");
-const HOT = new THREE.Color("#F8EDE3");
-const IDLE = new THREE.Color("#798777");
+const BASE = new THREE.Color("#66726b");
+const HOT = new THREE.Color("#e6eae7");
+const IDLE = new THREE.Color("#40423b");
 
 type SkillsModelProps = {
   scroll: MutableRefObject<number>;

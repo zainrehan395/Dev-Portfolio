@@ -115,7 +115,7 @@ function Dock({
           mouseX.set(Infinity);
         }}
         className={cn(
-          "mx-auto flex w-fit items-center gap-5 rounded-full px-6",
+          "mx-auto flex w-fit items-center gap-3 rounded-full px-4",
           className,
         )}
         style={{ height: panelHeight }}
@@ -159,7 +159,7 @@ function DockItem({ children, className, onClick }: DockItemProps) {
       onFocus={() => isHovered.set(1)}
       onBlur={() => isHovered.set(0)}
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center",
+        "relative flex shrink-0 items-center justify-center",
         className,
       )}
       tabIndex={0}
@@ -212,7 +212,7 @@ function DockLabel({ children, className, ...rest }: DockLabelProps) {
           exit={{ opacity: 0, y: 0 }}
           transition={{ duration: 0.2 }}
           className={cn(
-            "absolute -top-7 left-1/2 z-10 w-fit whitespace-pre rounded-full border border-cream/50 bg-deep/80 px-2.5 py-0.5 text-xs text-cream shadow-sm backdrop-blur-md",
+            "liquid-glass-item absolute -top-7 left-1/2 z-10 w-fit whitespace-pre rounded-full px-2.5 py-0.5 text-xs text-cream",
             className,
           )}
           role="tooltip"
@@ -229,12 +229,22 @@ function DockIcon({ children, className, ...rest }: DockIconProps) {
   const restProps = rest as Record<string, unknown>;
   const width = restProps["width"] as MotionValue<number>;
 
-  const size = useTransform(width, (val) => val * 0.48);
+  const size = useTransform(width, (val) => val * 0.5);
 
   return (
     <motion.div
-      style={{ width: size, height: size }}
-      className={cn("flex items-center justify-center", className)}
+      style={{
+        width: size,
+        height: size,
+        top: "50%",
+        left: "50%",
+        x: "-50%",
+        y: "-50%",
+      }}
+      className={cn(
+        "pointer-events-none absolute flex items-center justify-center",
+        className,
+      )}
     >
       {children}
     </motion.div>

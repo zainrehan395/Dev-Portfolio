@@ -25,41 +25,35 @@ export function Booking() {
   return (
     <section
       id="book"
-      className="relative border-t border-line/80 bg-surface py-24 text-deep sm:py-32"
+      className="relative border-t border-line/80 bg-surface py-24 text-cream sm:py-32"
     >
       <div
-        className="pointer-events-none absolute inset-0 opacity-60"
+        className="pointer-events-none absolute inset-0 opacity-70"
         style={{
           backgroundImage:
-            "radial-gradient(ellipse 50% 40% at 20% 30%, rgba(189,210,182,0.45), transparent), radial-gradient(ellipse 40% 35% at 80% 70%, rgba(121,135,119,0.12), transparent)",
+            "radial-gradient(ellipse 50% 40% at 20% 30%, color-mix(in srgb, var(--sage) 22%, transparent), transparent), radial-gradient(ellipse 40% 35% at 80% 70%, color-mix(in srgb, var(--surface) 70%, transparent), transparent)",
         }}
       />
 
       <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
         <div data-reveal className="mb-12 max-w-2xl">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-deep/70">
-            Booking
-          </p>
-          <h2 className="mt-3 font-display text-4xl font-bold tracking-tight text-deep sm:text-5xl">
+          <h2 className="font-display text-4xl font-bold tracking-tight text-cream sm:text-5xl">
             Let&apos;s talk about your next build
           </h2>
-          <p className="mt-4 text-lg text-deep/75">
-            Book a 30-minute call — product goals, stack choices, and whether I&apos;m the right
+          <p className="mt-4 text-lg text-sage">
+            Book a 30-minute call - product goals, stack choices, and whether I&apos;m the right
             engineer for the work. Or reach me at {profile.email}.
           </p>
         </div>
 
         {status === "done" ? (
-          <div data-reveal className="max-w-xl border border-deep/15 bg-sage/35 p-8 sm:p-10">
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-deep/70">
-              Confirmed
-            </p>
-            <h3 className="mt-3 font-display text-3xl font-semibold text-deep">
+          <div data-reveal className="liquid-glass-panel max-w-xl p-8 sm:p-10">
+            <h3 className="font-display text-3xl font-semibold text-cream">
               You&apos;re on the calendar
             </h3>
-            <p className="mt-4 text-deep/75">
+            <p className="mt-4 text-cream/75">
               Thanks{name ? `, ${name}` : ""}. Expect a calendar invite at{" "}
-              <span className="text-deep font-medium">{email}</span>
+              <span className="font-medium text-cream">{email}</span>
               {selected ? (
                 <>
                   {" "}
@@ -71,7 +65,7 @@ export function Booking() {
             </p>
             <button
               type="button"
-              className="mt-8 min-h-11 border border-deep/30 px-5 text-sm font-medium text-deep transition-colors hover:bg-deep hover:text-cream"
+              className="liquid-glass-btn mt-8 min-h-11 rounded-xl px-5 text-sm font-medium"
               onClick={() => {
                 setStatus("idle");
                 setName("");
@@ -89,7 +83,7 @@ export function Booking() {
             data-reveal
           >
             <fieldset>
-              <legend className="font-mono text-[11px] uppercase tracking-[0.16em] text-deep/70">
+              <legend className="font-mono text-[11px] uppercase tracking-[0.16em] text-sage">
                 Available times · 30 min
               </legend>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -100,10 +94,10 @@ export function Booking() {
                       key={s.id}
                       type="button"
                       onClick={() => setSlot(s.id)}
-                      className={`min-h-16 border px-3 py-3 text-left transition-colors duration-200 ${
+                      className={`min-h-16 rounded-xl px-3 py-3 text-left transition-colors duration-200 ${
                         selectedSlot
-                          ? "border-deep bg-deep text-cream"
-                          : "border-deep/15 bg-sage/30 text-deep hover:border-deep/40"
+                          ? "liquid-glass-btn-solid"
+                          : "liquid-glass-btn"
                       }`}
                       aria-pressed={selectedSlot}
                     >
@@ -119,23 +113,23 @@ export function Booking() {
               </div>
             </fieldset>
 
-            <div className="flex flex-col gap-5">
+            <div className="liquid-glass-panel flex flex-col gap-5 p-6 sm:p-8">
               <label className="block">
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-deep/70">
+                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-sage">
                   Name
                 </span>
                 <input
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-2 min-h-12 w-full border border-deep/20 bg-cream px-4 text-deep outline-none transition-colors placeholder:text-deep/40 focus:border-deep"
+                  className="liquid-glass-input mt-2 min-h-12 w-full rounded-xl px-4"
                   autoComplete="name"
                   placeholder="Alex Rivera"
                 />
               </label>
 
               <label className="block">
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-deep/70">
+                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-sage">
                   Work email
                 </span>
                 <input
@@ -143,21 +137,21 @@ export function Booking() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-2 min-h-12 w-full border border-deep/20 bg-cream px-4 text-deep outline-none transition-colors placeholder:text-deep/40 focus:border-deep"
+                  className="liquid-glass-input mt-2 min-h-12 w-full rounded-xl px-4"
                   autoComplete="email"
                   placeholder="alex@company.com"
                 />
               </label>
 
               <label className="block">
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-deep/70">
+                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-sage">
                   Project note
                 </span>
                 <textarea
                   value={project}
                   onChange={(e) => setProject(e.target.value)}
                   rows={3}
-                  className="mt-2 w-full resize-none border border-deep/20 bg-cream px-4 py-3 text-deep outline-none transition-colors placeholder:text-deep/40 focus:border-deep"
+                  className="liquid-glass-input mt-2 w-full resize-none rounded-xl px-4 py-3"
                   placeholder="What are you building?"
                 />
               </label>
@@ -165,12 +159,12 @@ export function Booking() {
               <button
                 type="submit"
                 disabled={status === "submitting"}
-                className="mt-2 inline-flex min-h-12 items-center justify-center bg-deep px-6 text-base font-semibold text-cream transition-colors duration-200 hover:bg-deep/90 disabled:cursor-wait disabled:opacity-70"
+                className="liquid-glass-btn-solid mt-2 inline-flex min-h-12 items-center justify-center rounded-xl px-6 text-base font-semibold disabled:cursor-wait disabled:opacity-70"
               >
                 {status === "submitting" ? "Scheduling…" : "Confirm booking"}
               </button>
 
-              <p className="font-mono text-[11px] leading-relaxed tracking-wide text-deep/65">
+              <p className="font-mono text-[11px] leading-relaxed tracking-wide text-sage">
                 {profile.email} · {profile.phone} · {profile.location}
               </p>
             </div>
