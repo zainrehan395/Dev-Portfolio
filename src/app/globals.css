@@ -314,3 +314,44 @@ button {
   color: transparent;
   filter: drop-shadow(-2px 0 12px rgba(102, 114, 107, 0.25));
 }
+
+/* Hero glass vector orbs */
+@keyframes heroOrbFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -12px, 0) scale(1.02);
+  }
+}
+
+.hero-orb {
+  will-change: transform;
+  transform-box: fill-box;
+}
+
+.hero-orb--a {
+  animation: heroOrbFloat 16s ease-in-out infinite;
+}
+
+.hero-orb--b {
+  animation: heroOrbFloat 20s ease-in-out infinite;
+  animation-delay: -5s;
+}
+
+.hero-orb--c {
+  animation: heroOrbFloat 18s ease-in-out infinite;
+  animation-delay: -9s;
+}
+
+.hero-orb--d {
+  animation: heroOrbFloat 22s ease-in-out infinite;
+  animation-delay: -12s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb {
+    animation: none;
+  }
+}

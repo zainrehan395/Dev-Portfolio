@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { profile } from "@/lib/data";
 import ProfileCard from "@/components/ProfileCard";
+import DecryptedText from "@/components/DecryptedText";
+import { HeroVectors } from "@/components/HeroVectors";
 
 const stack = ["React.js", "Next.js", "TypeScript", "Node.js", "AWS"];
 
@@ -54,26 +56,27 @@ export function Hero() {
       ref={rootRef}
       className="relative flex min-h-[100dvh] items-center overflow-hidden bg-deep pb-28 pt-24 sm:pb-32 sm:pt-28"
     >
-      <div
-        className="pointer-events-none absolute inset-0"
-        aria-hidden="true"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 55% at 15% 85%, color-mix(in srgb, var(--sage) 28%, transparent), transparent 58%), radial-gradient(ellipse 60% 45% at 92% 8%, color-mix(in srgb, var(--surface) 80%, transparent), transparent 55%)",
-        }}
-      />
+      <HeroVectors />
 
       <div className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,1fr)] lg:gap-10 xl:gap-14">
         <div className="min-w-0">
-          <h1 className="hero-anim font-display text-[clamp(3rem,12vw,6.5rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-cream">
-            {profile.name}
+          <h1 className="hero-anim font-display text-[clamp(3rem,12vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-cream">
+            {profile.fullName}
           </h1>
 
           <p className="hero-anim mt-5 max-w-2xl font-display text-2xl font-semibold tracking-tight text-cream sm:text-3xl">
-            I build things for the web.
+            <DecryptedText
+              text="I build things for the web."
+              animateOn="inViewHover"
+              sequential
+              speed={40}
+              revealDirection="start"
+              className="text-cream"
+              encryptedClassName="text-cream/40"
+            />
           </p>
 
-          <p className="hero-anim mt-5 max-w-2xl text-base leading-relaxed text-sage sm:text-lg">
+          <p className="hero-anim mt-5 max-w-2xl text-base leading-relaxed text-cream/70 sm:text-lg">
             I&apos;m a Full-Stack Software Engineer focused on creating scalable, performant, and
             user-focused applications with React, Next.js, Node.js, and AWS.
           </p>
@@ -108,7 +111,7 @@ export function Hero() {
           </div>
         </div>
 
-        <div className="hero-anim flex justify-center lg:justify-end">
+        <div className="hero-anim relative flex justify-center lg:justify-end">
           <ProfileCard
             name={profile.fullName}
             title={profile.role}

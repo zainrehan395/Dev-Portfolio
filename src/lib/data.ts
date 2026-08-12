@@ -1,6 +1,6 @@
 export const profile = {
   name: "Zain",
-  fullName: "Zain-ul-Abideen",
+  fullName: "Zain-Ul-Abideen",
   role: "Full Stack Software Engineer",
   years: "3+",
   tagline:
