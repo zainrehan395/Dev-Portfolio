@@ -7,12 +7,12 @@ import { Process } from "@/components/Process";
 import { Booking } from "@/components/Booking";
 import { Footer } from "@/components/Footer";
 import { ScrollProvider } from "@/components/ScrollProvider";
-import { SplashScreen } from "@/components/SplashScreen";
+import { Intro } from "@/components/Intro";
 
 export default function Home() {
   return (
     <ScrollProvider>
-      <SplashScreen />
+      <Intro />
       <Nav />
       <main className="flex-1">
         <Hero />

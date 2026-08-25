@@ -45,14 +45,14 @@ export function Footer() {
         aria-hidden="true"
       >
         <ShinyText
-          text="ZAIN-UL-ABIDEEN"
+          text="Design • Develop • Deliver"
           speed={3}
           delay={0.8}
           color="#66726b"
           shineColor="#e6eae7"
           spread={110}
           direction="left"
-          className="font-display text-[clamp(1.75rem,10vw,8.5rem)] font-extrabold uppercase leading-none tracking-[-0.03em]"
+          className="font-display text-[clamp(1.75rem,10vw,7.5rem)] font-extrabold uppercase leading-none tracking-[-0.03em] capitalize"
         />
       </div>
     </footer>
