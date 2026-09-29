@@ -1,28 +1,38 @@
-import { Nav } from "@/components/Nav";
-import { Hero } from "@/components/Hero";
-import { Work } from "@/components/Work";
-import { ScrollTunnel } from "@/components/ScrollTunnel";
-import { Skills } from "@/components/Skills";
-import { Process } from "@/components/Process";
-import { Booking } from "@/components/Booking";
-import { Footer } from "@/components/Footer";
-import { ScrollProvider } from "@/components/ScrollProvider";
-import { Intro } from "@/components/Intro";
+import { SiteNav } from "@/components/site/SiteNav";
+import { HeroSection } from "@/components/site/HeroSection";
+import { ManifestoStrip } from "@/components/site/ManifestoStrip";
+import { StackMarquee } from "@/components/site/StackMarquee";
+import { SelectedWork } from "@/components/site/SelectedWork";
+import { ProjectsIndex } from "@/components/site/ProjectsIndex";
+import { CraftLabLazy } from "@/components/site/CraftLabLazy";
+import { SignalMap } from "@/components/site/SignalMap";
+import { ProcessChapter } from "@/components/site/ProcessChapter";
+import { ContactBook } from "@/components/site/ContactBook";
+import { SiteFooter } from "@/components/site/SiteFooter";
+import { EntryCurtain } from "@/components/site/EntryCurtain";
+import { ScrollRoot } from "@/components/site/ScrollRoot";
+import { CursorSystem } from "@/components/site/CursorSystem";
+import { ScrollProgress } from "@/components/site/ScrollProgress";
 
 export default function Home() {
   return (
-    <ScrollProvider>
-      <Intro />
-      <Nav />
+    <ScrollRoot>
+      <EntryCurtain />
+      <CursorSystem />
+      <ScrollProgress />
+      <SiteNav />
       <main className="flex-1">
-        <Hero />
-        <Work />
-        <ScrollTunnel />
-        <Skills />
-        <Process />
-        <Booking />
+        <HeroSection />
+        <StackMarquee />
+        <ManifestoStrip />
+        <SelectedWork />
+        <ProjectsIndex />
+        <CraftLabLazy />
+        <SignalMap />
+        <ProcessChapter />
+        <ContactBook />
       </main>
-      <Footer />
-    </ScrollProvider>
+      <SiteFooter />
+    </ScrollRoot>
   );
 }
