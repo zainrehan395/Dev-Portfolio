@@ -1,0 +1,2470 @@
+================================================================================
+CODE EXPORT - Generated on 29/5/2026, 10:49:01 am
+Total files: 15
+================================================================================
+
+
+================================================================================
+FILE: components\BlurText.tsx
+================================================================================
+
+"use client";
+
+import { motion, Transition, Easing } from 'motion/react';
+import { useEffect, useRef, useState, useMemo } from 'react';
+
+type BlurTextProps = {
+  text?: string;
+  delay?: number;
+  className?: string;
+  animateBy?: 'words' | 'letters';
+  direction?: 'top' | 'bottom';
+  threshold?: number;
+  rootMargin?: string;
+  animationFrom?: Record<string, string | number>;
+  animationTo?: Array<Record<string, string | number>>;
+  easing?: Easing | Easing[];
+  onAnimationComplete?: () => void;
+  stepDuration?: number;
+};
+
+const buildKeyframes = (
+  from: Record<string, string | number>,
+  steps: Array<Record<string, string | number>>
+): Record<string, Array<string | number>> => {
+  const keys = new Set([...Object.keys(from), ...steps.flatMap(s => Object.keys(s))]);
+  const keyframes: Record<string, Array<string | number>> = {};
+  keys.forEach(k => {
+    keyframes[k] = [from[k], ...steps.map(s => s[k] ?? from[k])];
+  });
+  return keyframes;
+};
+
+const BlurText: React.FC<BlurTextProps> = ({
+  text = '',
+  delay = 200,
+  className = '',
+  animateBy = 'words',
+  direction = 'top',
+  threshold = 0.1,
+  rootMargin = '0px',
+  animationFrom,
+  animationTo,
+  easing = 'easeOut',
+  onAnimationComplete,
+  stepDuration = 0.35
+}) => {
+  const elements = animateBy === 'words' ? text.split(' ') : text.split('');
+  const [inView, setInView] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.unobserve(ref.current as Element);
+        }
+      },
+      { threshold, rootMargin }
+    );
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [threshold, rootMargin]);
+
+  const defaultFrom = useMemo(
+    () => direction === 'top' ? { filter: 'blur(10px)', opacity: 0, y: -50 } : { filter: 'blur(10px)', opacity: 0, y: 50 },
+    [direction]
+  );
+
+  const defaultTo = useMemo(
+    () => [
+      { filter: 'blur(5px)', opacity: 0.5, y: direction === 'top' ? 5 : -5 },
+      { filter: 'blur(0px)', opacity: 1, y: 0 }
+    ],
+    [direction]
+  );
+
+  const fromSnapshot = animationFrom ?? defaultFrom;
+  const toSnapshots = animationTo ?? defaultTo;
+  const stepCount = toSnapshots.length + 1;
+  const totalDuration = stepDuration * (stepCount - 1);
+  const times = Array.from({ length: stepCount }, (_, i) => (stepCount === 1 ? 0 : i / (stepCount - 1)));
+
+  const animatedKeyframes = useMemo(() => buildKeyframes(fromSnapshot, toSnapshots), [fromSnapshot, toSnapshots]);
+
+  return (
+    <p ref={ref} className={`blur-text ${className} flex flex-wrap gap-x-[0.25em] gap-y-[0.1em]`}>
+      {elements.map((segment, index) => (
+        <motion.span
+          key={index}
+          initial={fromSnapshot}
+          animate={inView ? animatedKeyframes : fromSnapshot}
+          transition={{
+            duration: totalDuration,
+            times: times,
+            ease: easing,
+            delay: (delay / 1000) + index * 0.05,
+          } as Transition}
+          onAnimationComplete={index === elements.length - 1 ? onAnimationComplete : undefined}
+          className="inline-block will-change-[transform,opacity,filter]"
+        >
+          {segment === '' ? '\u00A0' : segment}
+        </motion.span>
+      ))}
+    </p>
+  );
+};
+
+export default BlurText;
+
+================================================================================
+FILE: components\CurvedLoop.tsx
+================================================================================
+
+"use client";
+
+import { useRef, useEffect, useState, useMemo, useId, FC, PointerEvent } from 'react';
+
+interface CurvedLoopProps {
+  marqueeText?: string;
+  speed?: number;
+  className?: string;
+  curveAmount?: number;
+  direction?: 'left' | 'right';
+  interactive?: boolean;
+}
+
+const CurvedLoop: FC<CurvedLoopProps> = ({
+  marqueeText = '',
+  speed = 2,
+  className,
+  curveAmount = 400,
+  direction = 'left',
+  interactive = false
+}) => {
+  const text = useMemo(() => {
+    const hasTrailing = /\s|\u00A0$/.test(marqueeText);
+    return (hasTrailing ? marqueeText.replace(/\s+$/, '') : marqueeText) + '\u00A0';
+  }, [marqueeText]);
+
+  const measureRef = useRef<SVGTextElement | null>(null);
+  const textPathRef = useRef<SVGTextPathElement | null>(null);
+  const pathRef = useRef<SVGPathElement | null>(null);
+  const [spacing, setSpacing] = useState(0);
+  const uid = useId();
+  const pathId = `curve-${uid}`;
+  const pathD = `M-100,40 Q500,${40 + curveAmount} 1540,40`;
+
+  const dragRef = useRef(false);
+  const lastXRef = useRef(0);
+  const dirRef = useRef<'left' | 'right'>(direction);
+  const velRef = useRef(0);
+
+  const textLength = spacing;
+  const totalText = textLength
+    ? Array(Math.ceil(1800 / textLength) + 2)
+      .fill(text)
+      .join('')
+    : text;
+  const ready = spacing > 0;
+
+  useEffect(() => {
+    if (measureRef.current) setSpacing(measureRef.current.getComputedTextLength());
+  }, [text, className]);
+
+  useEffect(() => {
+    if (!spacing) return;
+    if (textPathRef.current) {
+      const initial = -spacing;
+      textPathRef.current.setAttribute('startOffset', initial + 'px');
+    }
+  }, [spacing]);
+
+  useEffect(() => {
+    if (!spacing || !ready) return;
+    let frame = 0;
+
+    const step = () => {
+      if (textPathRef.current) {
+        if (!dragRef.current) {
+          const targetSpeed = dirRef.current === "right" ? speed : -speed;
+          velRef.current += (targetSpeed - velRef.current) * 0.05;
+
+          const currentOffset = parseFloat(
+            textPathRef.current.getAttribute("startOffset") || "0"
+          );
+          let newOffset = currentOffset + velRef.current;
+          const wrapPoint = spacing;
+
+          if (newOffset <= -wrapPoint) newOffset += wrapPoint;
+          if (newOffset > 0) newOffset -= wrapPoint;
+
+          // ✅ Only write to the DOM — no setState, no re-render
+          textPathRef.current.setAttribute("startOffset", newOffset + "px");
+        } else {
+          velRef.current *= 0.88;
+        }
+      }
+      frame = requestAnimationFrame(step);
+    };
+
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [spacing, speed, ready]);
+
+  const onPointerDown = (e: PointerEvent) => {
+    if (!interactive) return;
+    dragRef.current = true;
+    lastXRef.current = e.clientX;
+    velRef.current = 0;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: PointerEvent) => {
+    if (!interactive || !dragRef.current || !textPathRef.current) return;
+    const dx = e.clientX - lastXRef.current;
+    lastXRef.current = e.clientX;
+    velRef.current = dx;
+    const currentOffset = parseFloat(textPathRef.current.getAttribute('startOffset') || '0');
+    let newOffset = currentOffset + dx;
+    const wrapPoint = spacing;
+    if (newOffset <= -wrapPoint) newOffset += wrapPoint;
+    if (newOffset > 0) newOffset -= wrapPoint;
+    textPathRef.current.setAttribute('startOffset', newOffset + 'px');
+  };
+
+  const endDrag = () => {
+    if (!interactive) return;
+    dragRef.current = false;
+    dirRef.current = velRef.current > 0 ? 'right' : 'left';
+  };
+
+  const cursorStyle = interactive ? (dragRef.current ? 'grabbing' : 'grab') : 'auto';
+
+  return (
+    <div
+      className="flex items-center justify-center w-full translate-y-[-40%]"
+      style={{ visibility: ready ? 'visible' : 'hidden', cursor: cursorStyle }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerLeave={endDrag}
+    >
+      <svg
+        className="select-none w-full overflow-visible block aspect-100/12 text-[6rem] font-bold uppercase leading-none"
+        viewBox="0 0 1440 120"
+      >
+        <text ref={measureRef} xmlSpace="preserve" style={{ visibility: 'hidden', opacity: 0, pointerEvents: 'none' }}>
+          {text}
+        </text>
+        <defs>
+          <path ref={pathRef} id={pathId} d={pathD} fill="none" stroke="transparent" />
+        </defs>
+        {ready && (
+          <text xmlSpace="preserve" className={`fill-white ${className ?? ''}`}>
+            <textPath ref={textPathRef} href={`#${pathId}`} xmlSpace="preserve">
+              {totalText}
+            </textPath>
+          </text>
+        )}
+      </svg>
+    </div>
+  );
+};
+
+export default CurvedLoop;
+
+
+================================================================================
+FILE: components\ExperienceShowcase.tsx
+================================================================================
+
+"use client";
+
+import React, { useRef, useEffect } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { EXPERIENCE_DATA } from "@/lib/config";
+
+gsap.registerPlugin(ScrollTrigger);
+
+interface WorkExperience {
+  role: string;
+  company: string;
+  location: string;
+  period: string;
+  techStack: string[];
+  highlights: string[];
+}
+
+const ExperienceCard = ({ exp }: { exp: WorkExperience; }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const pinRef = useRef<HTMLDivElement>(null);
+
+  // 1. Mouse Spotlight Tracking Frame Loop
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    cardRef.current.style.setProperty("--mouse-x", `${x}px`);
+    cardRef.current.style.setProperty("--mouse-y", `${y}px`);
+  };
+
+  // 2. Local Node Entry Animation
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: cardRef.current,
+          start: "top 85%",
+          toggleActions: "play none none reverse",
+        },
+      });
+
+      tl.fromTo(
+        pinRef.current,
+        { scale: 0, backgroundColor: "#0f0f11", borderColor: "#333" },
+        { scale: 1, backgroundColor: "#ffffff", borderColor: "#ffffff", duration: 0.4, ease: "back.out(2.5)" }
+      ).fromTo(
+        contentRef.current,
+        { opacity: 0, x: -30, filter: "blur(8px)" },
+        { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.6, ease: "power3.out" },
+        "-=0.2"
+      );
+    }, cardRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  return (
+    <div ref={cardRef} className="relative w-full group" onMouseMove={handleMouseMove}>
+      {/* Node Junction Pin */}
+      <div
+        ref={pinRef}
+        className="absolute -left-8 md:-left-16 top-4 w-3 h-3 md:w-4 md:h-4 rounded-full border-[3px] z-20 will-change-transform shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+      />
+
+      {/* Main Content Layout */}
+      <div ref={contentRef} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start will-change-[transform,opacity,filter]">
+
+        {/* Timestamp & Meta Panel */}
+        <div className="lg:col-span-4 flex flex-col pt-3">
+          <span className="text-xs font-mono text-white/40 font-bold tracking-[0.2em] uppercase mb-2">
+            {exp.period}
+          </span>
+          <h4 className="text-xl font-bold font-mono text-white leading-tight uppercase tracking-tight">
+            {exp.role}
+          </h4>
+          <span className="text-sm font-sans text-white/70 mt-1.5 font-medium">
+            {exp.company}
+          </span>
+          <span className="text-xs font-mono text-white/30 tracking-wide mt-1">
+            // {exp.location}
+          </span>
+        </div>
+
+        {/* Spotlight Interactive Terminal Panel */}
+        <div className="lg:col-span-8 relative overflow-hidden rounded-xl border border-white/5 bg-[#131316]/80 backdrop-blur-md transition-colors duration-500 group-hover:border-white/20">
+
+          {/* Dynamic Spotlight Mask Layers */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+            style={{
+              background: `radial-gradient(600px circle at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.06), transparent 40%)`
+            }}
+          />
+
+          <div className="relative p-7 md:p-8">
+            <ul className="space-y-4 mb-8">
+              {exp.highlights.map((bullet, bIdx) => (
+                <li key={bIdx} className="flex items-start gap-4 text-[0.9rem] text-neutral-400 leading-relaxed font-sans group-hover:text-neutral-300 transition-colors duration-300">
+                  <span className="text-white/20 font-mono text-xs mt-1 select-none">►</span>
+                  <span>{bullet}</span>
+                </li>
+              ))}
+            </ul>
+
+            {/* Hardware Architecture Badges */}
+            <div className="flex flex-wrap gap-2 pt-5 border-t border-white/4">
+              {exp.techStack.map((tech, tIdx) => (
+                <span
+                  key={tIdx}
+                  className="text-[10px] font-mono px-2.5 py-1.5 rounded-md bg-white/3 text-white/60 uppercase tracking-widest border border-white/3 group-hover:bg-white/8 group-hover:border-white/10 group-hover:text-white/90 transition-all duration-300"
+                >
+                  {tech}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Main Pipeline Parent ---
+export default function ExperienceShowcase() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const circuitLineRef = useRef<HTMLDivElement>(null);
+  const playheadRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const scrollTriggerBase = {
+        trigger: containerRef.current,
+        start: "top 40%",
+        end: "bottom 80%",
+        scrub: 0.5, // Added slight scrub delay for buttery smooth physics
+      };
+
+      // 1. Paint the wire down the screen
+      gsap.fromTo(
+        circuitLineRef.current,
+        { scaleY: 0 },
+        { scaleY: 1, ease: "none", scrollTrigger: scrollTriggerBase }
+      );
+
+      // 2. Sync the glowing playhead to the end of the line
+      gsap.fromTo(
+        playheadRef.current,
+        { top: "0%" },
+        { top: "100%", ease: "none", scrollTrigger: scrollTriggerBase }
+      );
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  return (
+    <section ref={containerRef} className="relative w-full max-w-6xl mx-auto px-6 py-40 bg-[#0f0f11]">
+      {/* Header Module */}
+      <div className="mb-32 flex flex-col items-start">
+        <span className="text-xs font-mono text-white/40 uppercase tracking-[0.4em] mb-3">
+          // CHRONOLOGICAL PIPELINE
+        </span>
+        <h3 className="text-5xl md:text-6xl font-bold font-mono text-white uppercase tracking-tighter">
+          EXPERIENCE <span className="text-white/30">CIRCUITS</span>
+        </h3>
+      </div>
+
+      <div className="relative pl-8 md:pl-16">
+        {/* Background Inactive Track */}
+        <div className="absolute left-1.25 md:left-1.75 top-4 bottom-0 w-0.5 bg-white/2" />
+
+        {/* Active Draw Track */}
+        <div className="absolute left-1.25 md:left-1.75 top-4 bottom-0 w-0.5 origin-top">
+          <div
+            ref={circuitLineRef}
+            className="w-full h-full bg-linear-to-b from-white/80 via-white/40 to-transparent origin-top scale-y-0 will-change-transform"
+          />
+
+          {/* Glowing Playhead Orb */}
+          <div
+            ref={playheadRef}
+            className="absolute -left-1 w-2.5 h-7.5 rounded-full bg-white blur-[2px] shadow-[0_0_20px_rgba(255,255,255,0.8)] will-change-transform"
+            style={{ top: "0%" }}
+          />
+        </div>
+
+        {/* Render Dynamic Nodes */}
+        <div className="space-y-32">
+          {EXPERIENCE_DATA.map((exp, idx) => (
+            <ExperienceCard key={idx} exp={exp} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+================================================================================
+FILE: components\HeroSection.tsx
+================================================================================
+
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { HERO_PANELS } from "../lib/config";
+import { AnimatePresence } from "motion/react";
+import Terminal from "./Terminal";
+
+const { panel1, panel2, panel3, panel4 } = HERO_PANELS;
+
+gsap.registerPlugin(ScrollTrigger);
+
+export default function Hero() {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const titleContainerRef = useRef<HTMLDivElement>(null);
+    const panelGridRef = useRef<HTMLDivElement>(null);
+    const navRef = useRef<HTMLDivElement>(null);
+    const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+    const [terminalInitialCommand, setTerminalInitialCommand] = useState<string | undefined>(undefined);
+
+    const openTerminalWithDm = () => {
+        setTerminalInitialCommand("dm");
+        setIsTerminalOpen(true);
+    };
+
+    const closeTerminal = () => {
+        setIsTerminalOpen(false);
+        setTerminalInitialCommand(undefined);
+    };
+
+    useEffect(() => {
+        const ctx = gsap.context(() => {
+            const mm = gsap.matchMedia();
+
+            // DESKTOP: Full kinetic explosion and pinning
+            mm.add("(min-width: 768px)", () => {
+                // 1. Initial Intro
+                const introTimeline = gsap.timeline();
+                introTimeline.to(navRef.current, { y: 0, opacity: 1, duration: 0.8, ease: "power4.out" })
+                    .to(".intro-mask-line", { y: "0%", duration: 1.2, ease: "power4.out", stagger: 0.1 }, "-=0.5")
+
+                // 2. The Flying Deconstruction
+                const scrollTimeline = gsap.timeline({
+                    scrollTrigger: {
+                        trigger: containerRef.current,
+                        start: "top top",
+                        end: "+=150%",
+                        scrub: 1,
+                        pin: true,
+                        invalidateOnRefresh: true,
+                    }
+                });
+
+                scrollTimeline
+                    .to(titleContainerRef.current, { scale: 2.5, opacity: 0, y: -100, rotateX: 15, transformOrigin: "center center", ease: "none" }, 0)
+                    .to(".f-panel-1", { x: "0vw", y: "0vh", rotate: -2, scale: 1, ease: "none" }, 0)
+                    .to(".f-panel-2", { x: "0vw", y: "0vh", rotate: 1, scale: 1, ease: "none" }, 0)
+                    .to(".f-panel-3", { x: "0vw", y: "0vh", rotate: -1, scale: 1, ease: "none" }, 0)
+                    .to(".f-panel-4", { x: "0vw", y: "0vh", rotate: 3, scale: 1, ease: "none" }, 0)
+                    .to(navRef.current, { opacity: 0, y: -30, ease: "none" }, 0);
+            });
+
+            // MOBILE: Clean static fade-ins, no scroll-jacking
+            mm.add("(max-width: 767px)", () => {
+                const mobileTimeline = gsap.timeline();
+                mobileTimeline.to(navRef.current, { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" })
+                    .to(".intro-mask-line", { y: "0%", duration: 1, ease: "power3.out", stagger: 0.1 }, "-=0.4")
+            });
+
+        }, containerRef);
+
+        return () => ctx.revert();
+    }, []);
+
+    return (
+        <>
+            <div ref={containerRef} className="relative w-full h-screen bg-[#0f0f11] text-[#f3f3f3] overflow-hidden" style={{ perspective: "1000px" }}>
+                {/* HEADLINE */}
+                <div ref={titleContainerRef} className="absolute inset-0 flex flex-col items-center justify-center z-10 select-none pointer-events-none">
+                    <h1 className="text-7xl md:text-[8vw] font-black tracking-tighter leading-[0.85] uppercase text-center w-full max-w-7xl mx-auto">
+                        <div className="overflow-hidden block py-2">
+                            <span className="intro-mask-line block will-change-transform translate-y-[110%]">DISRUPTIVE</span>
+                        </div>
+                        <div className="overflow-hidden block py-2">
+                            <span className="intro-mask-line block will-change-transform text-transparent translate-y-[110%]" style={{ backgroundClip: "text", WebkitBackgroundClip: "text", backgroundImage: "linear-gradient(to right, #6b7280, #d1d5db, #ffffff)" }}>
+                                ARCHITECT
+                            </span>
+                        </div>
+                    </h1>
+                </div>
+
+                {/* PANELS */}
+                <div
+                    ref={panelGridRef}
+                    className="absolute inset-0 w-full h-full pointer-events-none z-20 px-8 flex flex-col gap-9 justify-center"
+                >
+                    <div className="flex flex-row gap-6 w-full items-stretch">
+
+                        {/* PANEL 2 */}
+                        <div className="f-panel-2 floating-panel-initial bg-[#16161a] border border-white/5 rounded-2xl p-8 flex-1 flex flex-col justify-between pointer-events-auto backdrop-blur-md shadow-2xl" style={{ transform: "translateX(-120vw) translateY(-20vh) rotate(-25deg) scale(1.5)" }}>
+                            <div className="flex justify-between items-start border-b border-white/5 pb-4">
+                                <span className="font-mono text-xs" style={{ color: "#c678dd" }}>{panel2.tag}</span>
+                                <span className="font-mono text-xs text-gray-500">{panel2.meta}</span>
+                            </div>
+                            <div className="my-auto">
+                                <h2 className="text-4xl font-black tracking-tighter uppercase leading-[0.9] whitespace-pre-line">
+                                    {panel2.headline}
+                                </h2>
+                            </div>
+                            <div className="flex justify-between items-center pt-2">
+                                <p className="text-base font-medium max-w-xs text-gray-400">{panel2.subtext}</p>
+                                <span className="text-2xl">✦</span>
+                            </div>
+                        </div>
+
+                        {/* PANEL 1 */}
+                        <div className="f-panel-1 floating-panel-initial bg-[#c678dd] text-black rounded-2xl p-8 flex-[1.3] flex flex-col justify-between pointer-events-auto shadow-2xl" style={{ transform: "translateX(120vw) translateY(30vh) rotate(35deg) scale(1.25)" }}>
+                            <div className="flex justify-between items-start border-b border-black/10 pb-4">
+                                <span className="font-mono text-xs font-bold">{panel1.tag}</span>
+                                <span className="font-mono text-xs font-bold opacity-60">{panel1.meta}</span>
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-black tracking-tight mb-2 uppercase whitespace-pre-line">
+                                    {panel1.title}
+                                </h2>
+                                <p className="text-base text-black leading-relaxed">{panel1.desc}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 pt-4">
+                                {panel1.stack?.map((tech) => (
+                                    <span key={tech} className="font-mono text-sm bg-black/15 px-2 py-1 rounded">
+                                        {tech}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* PANEL 3 */}
+                        <div className="f-panel-3 floating-panel-initial bg-[#16161a] border border-white/5 rounded-2xl p-6 flex-1 flex flex-col justify-between pointer-events-auto shadow-2xl" style={{ transform: "translateY(150vh) rotate(-15deg)" }}>
+                            <div className="flex justify-between items-center">
+                                <span className="font-mono text-[10px] text-gray-500">{panel3.tag}</span>
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                            </div>
+                            <div className="py-2">
+                                <div className="text-3xl font-mono tracking-tighter text-white font-bold whitespace-pre-line">
+                                    {panel3.title}
+                                </div>
+                                <p className="text-base text-gray-400 mt-2">{panel3.desc}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-center w-full">
+                        <div className="f-panel-4 floating-panel-initial bg-zinc-900 border border-white/10 rounded-2xl px-10 py-6 flex flex-col items-center justify-center gap-4 pointer-events-auto shadow-2xl hover:border-[#c678dd] transition-colors duration-300" style={{ transform: "translateY(60vh) rotate(3deg) scale(1.25)" }}>
+                            <p className="font-mono text-[10px] text-gray-500 tracking-widest uppercase">{panel4.tag}</p>
+                            <button onClick={openTerminalWithDm} className="text-black cursor-pointer font-mono text-xs font-bold py-3 px-8 rounded-full bg-[#c678dd] hover:scale-105 transition-transform duration-300">
+                                {panel4.cta}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <AnimatePresence>
+                {isTerminalOpen && (
+                    <Terminal
+                        onClose={closeTerminal}
+                        initialCommand={terminalInitialCommand}
+                    />
+                )}
+            </AnimatePresence>
+        </>
+    );
+}
+
+
+================================================================================
+FILE: components\HUD.tsx
+================================================================================
+
+export default function HUD() {
+  return (
+    <div className="fixed top-0 left-0 w-full flex justify-between items-center px-6 md:px-12 pt-8 z-50 pointer-events-none mix-blend-difference text-[#f3f3f3] uppercase font-mono text-[10px] md:text-xs tracking-widest">
+      <div className="flex items-center gap-4">
+        <span>Sarthak Parulekar © {new Date().getFullYear()}</span>
+      </div>
+      <div>
+        <span>CREATIVE ENGINEER | 18Y/o</span>
+      </div>
+    </div>
+  );
+}
+
+================================================================================
+FILE: components\Noise.tsx
+================================================================================
+
+const Noise = () => {
+    return (
+        <div
+            className="pointer-events-none fixed inset-0 z-50 opacity-[0.04]"
+            style={{
+                // A tiny 50x50 noise tile base64 that repeats infinitely
+                backgroundImage: `url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyAAMAAAAe3DNGAAAANElEQVRYR2P4z8AARjIsm7QEw0gMBoNGA6HRIHw0EBqNBoNGA6HRIHw0EBqNBoNGA6GxDAwAn7X8EbWe0bIAAAAASUVORK5CYII=")`,
+                backgroundRepeat: 'repeat',
+            }}
+        />
+    );
+};
+
+export default Noise;
+
+================================================================================
+FILE: components\Preloader.tsx
+================================================================================
+
+"use client";
+import { useEffect, useRef, useState } from "react";
+import gsap from "gsap";
+
+export default function Preloader() {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const counterRef = useRef<HTMLDivElement>(null);
+    const [isComplete, setIsComplete] = useState(false);
+
+    useEffect(() => {
+        const ctx = gsap.context(() => {
+            const tl = gsap.timeline({
+                onComplete: () => {
+                    setIsComplete(true);
+                    // Dispatch a custom event so page components know it's safe to animate
+                    window.dispatchEvent(new Event("bootComplete"));
+                }
+            });
+
+            // Fake terminal boot sequence counter
+            tl.to(counterRef.current, {
+                innerHTML: 100,
+                duration: 2,
+                snap: { innerHTML: 1 },
+                ease: "power4.inOut",
+            })
+                // The split screen shatter effect
+                .to(".preloader-split-top", {
+                    yPercent: -100,
+                    duration: 0.8,
+                    ease: "power4.inOut"
+                }, "+=0.2")
+                .to(".preloader-split-bottom", {
+                    yPercent: 100,
+                    duration: 0.8,
+                    ease: "power4.inOut"
+                }, "<")
+                .to(containerRef.current, {
+                    autoAlpha: 0,
+                    duration: 0.1
+                });
+        });
+
+        return () => ctx.revert();
+    }, []);
+
+    if (isComplete) return null;
+
+    return (
+        <div ref={containerRef} className="fixed inset-0 z-100 pointer-events-none flex flex-col uppercase font-mono text-xs tracking-widest text-brand">
+            {/* Top Half */}
+            <div className="preloader-split-top absolute top-0 left-0 w-full h-1/2 bg-[#0a0a0c] border-b border-white/5 flex items-end px-8 pb-4">
+                <span>INITIALIZING SYSTEM_</span>
+            </div>
+
+            {/* Bottom Half with Counter */}
+            <div className="preloader-split-bottom absolute bottom-0 left-0 w-full h-1/2 bg-[#0a0a0c] flex items-start px-8 pt-4 justify-between">
+                <span>LOADING DOM MATRIX</span>
+                <div className="text-6xl font-black tracking-tighter text-[#f3f3f3]">
+                    <span ref={counterRef}>0</span>%
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+================================================================================
+FILE: components\ProjectGallery.tsx
+================================================================================
+
+"use client";
+import { useEffect, useRef, useState } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Terminal from "./Terminal";
+import { AnimatePresence } from "motion/react";
+import { PROJECTS } from "@/lib/config";
+import Link from "next/link";
+
+gsap.registerPlugin(ScrollTrigger);
+
+export default function ProjectGallery() {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const trackRef = useRef<HTMLDivElement>(null);
+    const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+
+    useEffect(() => {
+        const track = trackRef.current;
+        const container = scrollContainerRef.current;
+        if (!track || !container) return;
+
+        const ctx = gsap.context(() => {
+            const mm = gsap.matchMedia();
+
+            // 💻 DESKTOP: Horizontal Scroll Matrix
+            mm.add("(min-width: 768px)", () => {
+                const totalScrollDistance = track.scrollWidth - window.innerWidth;
+
+                const scrollTween = gsap.to(track, {
+                    x: () => -totalScrollDistance,
+                    ease: "none",
+                    scrollTrigger: {
+                        trigger: container,
+                        pin: true,
+                        scrub: 1,
+                        start: "top top",
+                        end: () => `+=${track.scrollWidth}`,
+                        invalidateOnRefresh: true,
+                    }
+                });
+
+                // Spatial distortion on individual cards
+                gsap.utils.toArray(".project-panel").forEach((panel: any) => {
+                    gsap.fromTo(panel.querySelector(".panel-content"),
+                        { scale: 0.9, rotateY: 15, opacity: 0.6 },
+                        {
+                            scale: 1, rotateY: 0, opacity: 1, ease: "power2.out",
+                            scrollTrigger: {
+                                trigger: panel,
+                                containerAnimation: scrollTween,
+                                start: "left right-=20%",
+                                end: "center center",
+                                scrub: true,
+                            }
+                        }
+                    );
+                });
+
+                // The Black Hole Footer 
+                gsap.fromTo(".void-bg",
+                    { scale: 0.3, borderRadius: "500px", opacity: 0 },
+                    {
+                        scale: 1, borderRadius: "0px", opacity: 1, ease: "none",
+                        scrollTrigger: {
+                            trigger: ".void-panel",
+                            containerAnimation: scrollTween,
+                            start: "left right",
+                            end: "left left",
+                            scrub: true,
+                        }
+                    }
+                );
+            });
+
+            // 📱 MOBILE: Standard vertical flow
+            mm.add("(max-width: 767px)", () => {
+                // Ensure the track doesn't try to stretch off-screen on phones
+                gsap.set(track, { width: "100%", x: 0 });
+                gsap.set(".project-panel", { width: "100%", height: "auto" });
+                gsap.set(".void-panel", { width: "100%", height: "100vh" });
+
+                // Simple slide-up reveals for the cards as you scroll down
+                gsap.utils.toArray(".project-panel").forEach((panel: any) => {
+                    gsap.fromTo(panel.querySelector(".panel-content"),
+                        { opacity: 0, y: 50 },
+                        {
+                            opacity: 1, y: 0, duration: 0.8, ease: "power3.out",
+                            scrollTrigger: {
+                                trigger: panel,
+                                start: "top 85%",
+                            }
+                        }
+                    );
+                });
+            });
+
+        }, container);
+
+        return () => ctx.revert();
+    }, []);
+
+    return (
+        <>
+            <div ref={scrollContainerRef} className="relative w-full h-screen bg-[#0f0f11] overflow-hidden" style={{ "--projects-count": PROJECTS.length } as React.CSSProperties}>
+                <div ref={trackRef} className="relative md:absolute top-0 left-0 h-full flex flex-col md:flex-row items-center will-change-transform md:w-[calc((var(--projects-count)+1)*100vw)] w-full">
+
+                    {/* PROJECT LAYOUT CAPSULES */}
+                    {PROJECTS.map((project) => (
+                        <section
+                            key={project.id}
+                            className="project-panel w-full min-h-screen md:w-screen md:h-screen flex items-center justify-center px-8 md:px-24 shrink-0 perspective-1000 select-none"
+                        // style={{ backgroundColor: project.bg }}
+                        >
+                            <div className="panel-content w-full max-w-6xl h-[70vh] bg-black/40 border border-white/5 rounded-3xl p-8 md:p-16 flex flex-col justify-between transform-style-3d shadow-2xl backdrop-blur-sm">
+
+                                {/* Card Top Information Data Header */}
+                                <div className="flex justify-between items-start border-b border-white/5 pb-6">
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-mono text-sm text-gray-500">[{project.id}]</span>
+                                        <h4 className="font-mono text-xs tracking-widest uppercase" style={{ color: project.accent }}>
+                                        // {project.tagline}
+                                        </h4>
+                                    </div>
+                                    <span className="font-mono text-xs text-gray-600 tracking-tighter">STATUS: PRODUCTION_READY</span>
+                                </div>
+
+                                {/* Center Identity Core */}
+                                <div className="my-auto max-w-4xl">
+                                    <h2 className="text-4xl md:text-7xl font-black tracking-tighter text-white uppercase mb-6 leading-none">
+                                        {project.title}
+                                    </h2>
+                                    <p className="text-base md:text-lg text-gray-400 font-light leading-relaxed max-w-2xl">
+                                        {project.desc}
+                                    </p>
+                                </div>
+
+                                {/* Footer Integration & CTA Row */}
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pt-6 border-t border-white/5">
+                                    <div className="flex flex-wrap gap-2">
+                                        {project.tech.map((t) => (
+                                            <span key={t} className="font-mono text-[11px] bg-white/5 border border-white/10 px-3 py-1 rounded-md text-gray-300">
+                                                {t}
+                                            </span>
+                                        ))}
+                                    </div>
+
+                                    <Link
+                                        href={project.link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="magnetic-target group h-14 px-8 rounded-full flex items-center justify-center text-xs font-mono font-bold tracking-wider transition-all duration-300 shadow-lg border"
+                                        style={{
+                                            backgroundColor: project.accent === "#ffffff" ? "#ffffff" : "transparent",
+                                            color: project.accent === "#ffffff" ? "#000000" : project.accent,
+                                            borderColor: project.accent === "#ffffff" ? "transparent" : "color-mix(in srgb, var(--color-brand) 19%, transparent)"
+                                        }}
+                                    >
+                                        INSPECT_REPOS_ →
+                                    </Link>
+                                </div>
+
+                            </div>
+                        </section>
+                    ))}
+
+                    {/* THE VOID / BLACK HOLE CLOSING TERMINAL FOOTER */}
+                    <section className="void-panel w-screen h-screen relative flex items-center justify-center shrink-0 overflow-hidden bg-[#0f0f11]">
+                        {/* Expanding background layer triggered directly by horizontal scroll tracking */}
+                        <div className="void-bg absolute inset-0 bg-brand z-0" />
+
+                        <div className="relative z-10 text-center text-black px-6 max-w-3xl flex flex-col items-center">
+                            <span className="font-mono text-xs tracking-[0.3em] font-bold uppercase mb-4 text-black/60">[ END OF PIPELINE ]</span>
+                            <h2 className="text-5xl md:text-8xl font-black tracking-tighter uppercase leading-[0.85] mb-8">
+                                LET'S EXECUTE SOMETHING.
+                            </h2>
+                            <p className="text-sm md:text-base font-medium max-w-md mb-12 text-black/80">
+                                Have an engine architecture configuration, infrastructure optimization problem, or highly responsive UI workspace layout that needs assembly?
+                            </p>
+
+                            <button
+                                onClick={() => setIsTerminalOpen(true)}
+                                className="magnetic-target bg-black text-brand font-mono text-xs font-bold py-5 px-10 rounded-full hover:scale-105 transition-transform duration-300 shadow-2xl tracking-widest uppercase cursor-pointer"
+                            >
+                                INITIALIZE_HANDSHAKE_
+                            </button>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+            
+            <AnimatePresence>
+                {isTerminalOpen && <Terminal onClose={() => setIsTerminalOpen(false)} />}
+            </AnimatePresence>
+        </>
+    );
+}
+
+
+================================================================================
+FILE: components\ScrollReveal.tsx
+================================================================================
+
+"use client";
+
+import React, { useEffect, useRef, useMemo, ReactNode, RefObject } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
+
+interface ScrollRevealProps {
+  children: ReactNode;
+  scrollContainerRef?: RefObject<HTMLElement | null>;
+  enableBlur?: boolean;
+  baseOpacity?: number;
+  baseRotation?: number;
+  blurStrength?: number;
+  containerClassName?: string;
+  textClassName?: string;
+  rotationEnd?: string;
+  wordAnimationEnd?: string;
+}
+
+const ScrollReveal: React.FC<ScrollRevealProps> = ({
+  children,
+  enableBlur = true,
+  baseOpacity = 0.1,
+  baseRotation = 3,
+  blurStrength = 8,
+  containerClassName = '',
+  textClassName = '',
+  wordAnimationEnd = 'bottom bottom'
+}) => {
+  const containerRef = useRef<HTMLHeadingElement>(null);
+
+  const splitText = useMemo(() => {
+    if (typeof children !== "string") {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[ScrollReveal] children must be a plain string. Received:", typeof children);
+      }
+      return children; 
+    }
+
+    return children.split(/(\s+)/).map((word, index) => {
+      if (word.match(/^\s+$/)) return word;
+      return (
+        <span
+          key={index}
+          className="word inline-block origin-center will-change-[transform,opacity,filter]"
+          style={{ opacity: baseOpacity }}
+        >
+          {word}
+        </span>
+      );
+    });
+  }, [children, baseOpacity]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const words = el.querySelectorAll('.word');
+    if (!words.length) return;
+
+    // Use GSAP contextual scope for clean component unmounting
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        words,
+        {
+          opacity: baseOpacity,
+          rotateX: baseRotation,
+          scale: 0.96,
+          filter: enableBlur ? `blur(${blurStrength}px)` : 'none',
+          y: 20,
+        },
+        {
+          opacity: 1,
+          rotateX: 0,
+          scale: 1,
+          filter: 'blur(0px)',
+          y: 0,
+          stagger: 0.02,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: el,
+            start: 'top 85%',
+            end: wordAnimationEnd || 'bottom 45%',
+            scrub: true,
+          },
+        }
+      );
+    });
+
+    return () => ctx.revert();
+  }, [baseOpacity, baseRotation, enableBlur, blurStrength, wordAnimationEnd]);
+
+  return (
+    <h2 ref={containerRef} className={`my-5 select-none ${containerClassName}`}>
+      <p className={`text-[clamp(1.5rem,3.8vw,3.2rem)] font-bold tracking-tight uppercase leading-relaxed font-mono text-white ${textClassName}`}>
+        {splitText}
+      </p>
+    </h2>
+  );
+};
+
+export default ScrollReveal;
+
+================================================================================
+FILE: components\SmoothScroll.tsx
+================================================================================
+
+// components/SmoothScroll.tsx
+"use client";
+import React, { useEffect } from "react";
+import Lenis from "@studio-freight/lenis";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+export default function SmoothScroll({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: "vertical",
+      gestureOrientation: "vertical",
+      smoothWheel: true,
+    });
+
+    const tickerCallback = (time: number) => lenis.raf(time * 1000);
+
+    function raf(time: number) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+
+    lenis.on("scroll", ScrollTrigger.update);
+    gsap.ticker.add(tickerCallback);
+    gsap.ticker.lagSmoothing(0);
+
+    return () => {
+      lenis.destroy();
+      gsap.ticker.remove(tickerCallback); 
+    };
+  }, []);
+
+  return <>{children}</>;
+}
+
+================================================================================
+FILE: components\Terminal.tsx
+================================================================================
+
+import { useState, useEffect, useRef, FormEvent, useCallback } from "react";
+import { X, Copy, Check, Terminal as TerminalIcon, Volume2, VolumeX, Send, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+
+interface TerminalProps {
+    onClose: () => void;
+    initialCommand?: string;
+}
+
+type LogType = "input" | "output" | "error" | "system";
+
+interface Log {
+    id: string;
+    type: LogType;
+    segments: Segment[];
+}
+
+interface Segment {
+    text: string;
+    color?: string;
+    bold?: boolean;
+    dim?: boolean;
+    href?: string;
+}
+
+// ─── Theme system ─────────────────────────────────────────────────────────────
+type ThemeName = "onedark" | "matrix" | "dracula" | "nord" | "monokai";
+
+interface ThemeColors {
+    blue: string; purple: string; green: string; yellow: string;
+    orange: string; red: string; cyan: string; white: string;
+    dim: string; bright: string; bg: string; headerBg: string; border: string;
+}
+
+const THEMES: Record<ThemeName, ThemeColors> = {
+    onedark: {
+        blue: "#61afef", purple: "#c678dd", green: "#98c379", yellow: "#e5c07b",
+        orange: "#d19a66", red: "#e06c75", cyan: "#56b6c2", white: "#abb2bf",
+        dim: "#5c6370", bright: "#ffffff", bg: "#0c0c0e", headerBg: "#131316",
+        border: "255,255,255",
+    },
+    matrix: {
+        blue: "#00ff41", purple: "#00ff41", green: "#00ff41", yellow: "#00ff41",
+        orange: "#00ff41", red: "#00ff41", cyan: "#00ff41", white: "#00cc33",
+        dim: "#006622", bright: "#00ff41", bg: "#0a0a0a", headerBg: "#0d0d0d",
+        border: "0,255,65",
+    },
+    dracula: {
+        blue: "#bd93f9", purple: "#ff79c6", green: "#50fa7b", yellow: "#f1fa8c",
+        orange: "#ffb86c", red: "#ff5555", cyan: "#8be9fd", white: "#f8f8f2",
+        dim: "#6272a4", bright: "#ffffff", bg: "#1e1f29", headerBg: "#21222c",
+        border: "189,147,249",
+    },
+    nord: {
+        blue: "#81a1c1", purple: "#b48ead", green: "#a3be8c", yellow: "#ebcb8b",
+        orange: "#d08770", red: "#bf616a", cyan: "#88c0d0", white: "#d8dee9",
+        dim: "#4c566a", bright: "#eceff4", bg: "#242933", headerBg: "#2e3440",
+        border: "136,192,208",
+    },
+    monokai: {
+        blue: "#66d9ef", purple: "#ae81ff", green: "#a6e22e", yellow: "#e6db74",
+        orange: "#fd971f", red: "#f92672", cyan: "#a1efe4", white: "#cfcfc2",
+        dim: "#75715e", bright: "#f8f8f2", bg: "#1e1e1e", headerBg: "#252526",
+        border: "166,226,46",
+    },
+};
+
+const s = (text: string, color?: string, bold?: boolean, href?: string): Segment => ({ text, color, bold, href });
+
+let C = THEMES.onedark;
+
+// ─── Sound engine ─────────────────────────────────────────────────────────────
+let audioCtx: AudioContext | null = null;
+let soundEnabled = true;
+
+function getAudioCtx(): AudioContext | null {
+    if (!soundEnabled) return null;
+    if (!audioCtx) {
+        try { audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)(); }
+        catch { return null; }
+    }
+    return audioCtx;
+}
+
+function playTick() {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = "sine"; osc.frequency.value = 600 + Math.random() * 300;
+    gain.gain.setValueAtTime(0.015, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.04);
+}
+
+function playReturn() {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = "triangle"; osc.frequency.value = 120;
+    gain.gain.setValueAtTime(0.03, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.08);
+}
+
+// ─── Commands ─────────────────────────────────────────────────────────────────
+const COMMANDS = [
+    "help", "about", "contact", "stack", "clear", "exit",
+    "projects", "whoami", "neofetch", "date", "echo", "ls",
+    "theme", "matrix", "sound", "sudo", "cat", "resume", "dm",
+];
+
+function levenshtein(a: string, b: string): number {
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++)
+        for (let j = 1; j <= n; j++)
+            dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    return dp[m][n];
+}
+
+function findSuggestions(input: string): string[] {
+    if (!input || input.length < 2) return [];
+    const lower = input.toLowerCase();
+    return COMMANDS
+        .filter((c) => levenshtein(lower, c) <= 3 && c !== lower)
+        .sort((a, b) => levenshtein(lower, a) - levenshtein(lower, b))
+        .slice(0, 3);
+}
+
+// ─── ASCII art ────────────────────────────────────────────────────────────────
+const NEOFETCH_ASCII = [
+    "      :---------------:      ",
+    "     :------------------:     ",
+    "    :--------------------:    ",
+    "   :-------.  .----------:   ",
+    "  :-------    :----------:   ",
+    " :-------      ----------:   ",
+    ":--------    :----------:    ",
+    ":--------  :----------:      ",
+    ":-------------------:        ",
+    " :-----------------:         ",
+    "  :-------------:            ",
+];
+
+// ─── Response builders ────────────────────────────────────────────────────────
+function buildHelp(): Segment[][] {
+    const cmds: [string, string][] = [
+        ["about", "System bio and mission parameters"],
+        ["contact", "Initialize communication protocols"],
+        ["dm", "Send a direct message to the developer"],
+        ["stack", "Core engineering technologies"],
+        ["projects", "List portfolio projects"],
+        ["neofetch", "Display system information"],
+        ["whoami", "Current user identity"],
+        ["date", "Print system date/time"],
+        ["echo <txt>", "Echo text back"],
+        ["ls", "List directory contents"],
+        ["theme <name>", "Switch color scheme"],
+        ["matrix", "Toggle Matrix rain"],
+        ["sound", "Toggle keyboard sounds"],
+        ["clear", "Wipe terminal history"],
+        ["exit", "Terminate session"],
+    ];
+    return [
+        [s("AVAILABLE COMMANDS", C.yellow, true)],
+        ...cmds.map(([cmd, desc]) => [
+            s("  "), s(cmd.padEnd(14), C.green, true),
+            s("─ ", C.dim), s(desc, C.white),
+        ]),
+    ];
+}
+
+function buildAbout(): Segment[][] {
+    return [
+        [s("┌─ ", C.dim), s("SYSTEM INFO", C.cyan, true)],
+        [s("│ ", C.dim), s("TARGET   ", C.blue), s("Sarthak Parulekar", C.bright, true)],
+        [s("│ ", C.dim), s("ROLE     ", C.blue), s("Creative Software Engineer", C.purple)],
+        [s("│ ", C.dim), s("STATUS   ", C.blue), s("Crafting high-performance web apps & fluid interactive interfaces", C.white)],
+        [s("└─ ", C.dim), s("LOCATION ", C.blue), s("Indore, Madhya Pradesh, India", C.yellow)],
+    ];
+}
+
+function buildContact(): Segment[][] {
+    return [
+        [s("INITIALIZING CONTACT PROTOCOL", C.cyan, true), s(" ···", C.dim)],
+        [s("  ✉  ", C.green), s("Email     ", C.dim), s("sarthakdev143.official@gmail.com", C.green)],
+        [s("  ⬡  ", C.blue), s("LinkedIn  ", C.dim), s("linkedin.com/in/sarthak-parulekar", C.blue, false, "https://www.linkedin.com/in/sarthak-parulekar")],
+        [s("  ⌥  ", C.purple), s("GitHub    ", C.dim), s("github.com/sarthakdev143-lite", C.purple, false, "https://github.com/sarthakdev143-lite")],
+        [s("")],
+        [s("  💬 ", C.cyan), s("Type ", C.dim), s("dm", C.cyan, true), s(" to send me a message directly from this terminal.", C.dim)],
+    ];
+}
+
+function buildStack(): Segment[][] {
+    return [
+        [s("CORE ARCHITECTURE", C.yellow, true)],
+        [s("  ► ", C.orange), s("Frontend  ", C.blue), s("Next.js · React · TypeScript · Tailwind CSS", C.white)],
+        [s("  ► ", C.orange), s("Backend   ", C.blue), s("Spring Boot · Node.js · REST APIs", C.white)],
+        [s("  ► ", C.orange), s("Motion    ", C.blue), s("GSAP · Lenis · Framer Motion · Canvas", C.white)],
+        [s("  ► ", C.orange), s("Systems   ", C.blue), s("Git Workflows · Deployment Pipelines", C.white)],
+    ];
+}
+
+function buildProjects(): Segment[][] {
+    const projects = [
+        { name: "Portfolio 3D", tech: "Next.js · Three.js · GSAP", desc: "Immersive 3D portfolio with physics-based interactions" },
+        { name: "DevFlow", tech: "React · Node.js · MongoDB", desc: "Developer workflow automation & CI/CD dashboard" },
+        { name: "PixelForge", tech: "TypeScript · Canvas API", desc: "Browser-based pixel art editor with layer support" },
+        { name: "API Nexus", tech: "Spring Boot · PostgreSQL", desc: "High-throughput REST API gateway with rate limiting" },
+    ];
+    return [
+        [s("PORTFOLIO PROJECTS", C.yellow, true)],
+        [s("═".repeat(40), C.dim)],
+        ...projects.flatMap((p) => [
+            [s("  ◆ ", C.orange), s(p.name, C.cyan, true)],
+            [s("    "), s("Stack  ", C.dim), s(p.tech, C.white)],
+            [s("    "), s("About  ", C.dim), s(p.desc, C.white)],
+            [s("")],
+        ]),
+    ];
+}
+
+function buildWhoami(): Segment[][] {
+    return [[s("sarthak_engine", C.green, true)]];
+}
+
+function buildNeofetch(): Segment[][] {
+    const rows: Segment[][] = [];
+    const info: [string, string][] = [
+        ["OS", "SarthakOS 18.04 LTS"],
+        ["Host", "MacBook Pro (18,3) · Apple M4 Pro"],
+        ["Kernel", "18.5.4-generic"],
+        ["Shell", "bash 5.2.15"],
+        ["Uptime", `${Math.floor(Math.random() * 168) + 1} hours`],
+        ["Packages", `${Math.floor(Math.random() * 2000) + 500} (npm)`],
+        ["Resolution", "1728x1117 @ 120Hz"],
+        ["Terminal", "Sarthak_Engine v3.2.1"],
+    ];
+    const colors = [C.red, C.orange, C.yellow, C.green, C.cyan, C.blue, C.purple, C.red, C.orange];
+    const maxLen = Math.max(NEOFETCH_ASCII.length, info.length);
+    for (let i = 0; i < maxLen; i++) {
+        const ascii = NEOFETCH_ASCII[i] ?? "";
+        const [label, value] = info[i] ?? ["", ""];
+        const asciiColored = [...ascii].map((ch, j) =>
+            ch === " " ? s(" ") : s(ch, colors[j % colors.length], true)
+        );
+        const infoPart = label
+            ? [s("  "), s(label.padEnd(12), C.blue), s(value, C.white)]
+            : [s("")];
+        rows.push([...asciiColored, ...infoPart]);
+    }
+    return rows;
+}
+
+function buildDate(): Segment[][] {
+    return [[s(new Date().toLocaleString("en-US", {
+        weekday: "long", year: "numeric", month: "long", day: "numeric",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short",
+    }), C.green)]];
+}
+
+function buildLs(): Segment[][] {
+    const dirs = ["projects/", "about.txt", "contact.txt", "resume.pdf", "stack.json", ".secret/"];
+    return [
+        [s("total "), s(String(dirs.length), C.yellow)],
+        ...dirs.map((d) => [
+            s(d.endsWith("/") ? "drwxr-xr-x  " : "-rw-r--r--  ", C.dim),
+            s(d, d.endsWith("/") ? C.blue : C.white, d.endsWith("pdf")),
+        ]),
+    ];
+}
+
+function buildCat(args: string): Segment[][] {
+    const file = args.trim().toLowerCase();
+    switch (file) {
+        case "about.txt": return [[s("Sarthak Parulekar — Creative Software Engineer", C.bright, true)], [s("Based in Indore, MP, India.", C.white)], [s("Building high-performance web apps with modern tooling.", C.white)]];
+        case "resume.pdf": return [[s("⚠  Binary file. Use ", C.yellow), s("resume", C.green, true), s(" command to download.", C.yellow)]];
+        case "stack.json": return [[s("{", C.dim)], [s('  "frontend": ["Next.js","React","TypeScript","Tailwind"],', C.white)], [s('  "backend":  ["Spring Boot","Node.js","REST"],', C.white)], [s('  "motion":   ["GSAP","Lenis","Framer Motion"],', C.white)], [s('  "systems":  ["Git","CI/CD","Docker"]', C.white)], [s("}", C.dim)]];
+        default: return [[s(`cat: ${file}: No such file or directory`, C.red)]];
+    }
+}
+
+function buildEcho(args: string): Segment[][] {
+    return args.trim() ? [[s(args.trim(), C.green)]] : [[s("")]];
+}
+
+function buildResumeDownload(): Segment[][] {
+    return [
+        [s("📄 ", C.yellow), s("Preparing resume download...", C.white)],
+        [s("⚠  ", C.orange), s("Resume PDF is not yet uploaded to this build.", C.dim)],
+        [s("   "), s("Contact via ", C.dim), s("email", C.green), s(" to request a copy.", C.dim)],
+    ];
+}
+
+function buildThemeList(): Segment[][] {
+    const themes: [ThemeName, string][] = [
+        ["onedark", "One Dark (default)"],
+        ["matrix", "Matrix"],
+        ["dracula", "Dracula"],
+        ["nord", "Nord"],
+        ["monokai", "Monokai"],
+    ];
+    return [
+        [s("AVAILABLE THEMES", C.yellow, true)],
+        [s("Usage: "), s("theme <name>", C.green)],
+        ...themes.map(([name, desc]) => [
+            s("  ◆ ", C.orange), s(name.padEnd(12), C.cyan, true), s(desc, C.white),
+        ]),
+    ];
+}
+
+function buildError(cmd: string): Segment[][] {
+    const suggestions = findSuggestions(cmd);
+    const rows: Segment[][] = [[s("✗ ", C.red), s("Command not found: ", C.red), s(cmd, C.white, true)]];
+    if (suggestions.length > 0) {
+        rows.push([
+            s("  "), s("Did you mean: ", C.dim),
+            ...suggestions.flatMap((sug, i) => [
+                s(sug, C.green, true),
+                s(i < suggestions.length - 1 ? ", " : "", C.dim),
+            ]),
+            s(" ?", C.dim),
+        ]);
+    }
+    rows.push([s("  Type ", C.dim), s("help", C.green), s(" for valid commands.", C.dim)]);
+    return rows;
+}
+
+function buildSudo(): Segment[][] {
+    return [[s("⚠  Access denied.", C.red, true), s("  This incident will be reported.", C.dim)]];
+}
+
+function buildThemeApplied(name: ThemeName): Segment[][] {
+    return [[s("✓ ", C.green), s("Theme switched to ", C.white), s(name, C.green, true)]];
+}
+
+function buildSoundToggled(enabled: boolean): Segment[][] {
+    return [[s(enabled ? "🔊 Sound ON" : "🔇 Sound OFF", enabled ? C.green : C.red, true)]];
+}
+
+function buildDmIntro(): Segment[][] {
+    return [
+        [s("╔══ ", C.cyan), s("DIRECT MESSAGE", C.cyan, true), s(" ═════════════╗", C.cyan)],
+        [s("║  ", C.cyan), s("Send a message directly to Sarthak's inbox.   ", C.white), s("  ║", C.cyan)],
+        [s("╚════════════════════════════╝", C.cyan)],
+        [s("")],
+        [s("  Fill in the form below and hit ", C.dim), s("Send", C.green, true), s(".", C.dim)],
+    ];
+}
+
+// ─── Matrix Rain ──────────────────────────────────────────────────────────────
+function MatrixRain({ active }: { active: boolean }) {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const rafRef = useRef<number>(0);
+
+    useEffect(() => {
+        if (!active) return;
+        const canvas = canvasRef.current; if (!canvas) return;
+        const ctx = canvas.getContext("2d"); if (!ctx) return;
+        const resize = () => { canvas.width = canvas.parentElement!.clientWidth; canvas.height = canvas.parentElement!.clientHeight; };
+        resize(); window.addEventListener("resize", resize);
+        const fontSize = 14;
+        const cols = Math.floor(canvas.width / fontSize);
+        const drops: number[] = Array(cols).fill(0).map(() => Math.random() * -100);
+        const chars = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789";
+        const draw = () => {
+            ctx.fillStyle = "rgba(0,0,0,0.05)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = `${fontSize}px monospace`;
+            for (let i = 0; i < drops.length; i++) {
+                const char = chars[Math.floor(Math.random() * chars.length)];
+                const x = i * fontSize; const y = drops[i] * fontSize;
+                ctx.fillStyle = "#00ff41"; ctx.globalAlpha = 0.8; ctx.fillText(char, x, y);
+                ctx.fillStyle = "#ccffcc"; ctx.globalAlpha = 1; ctx.fillText(chars[Math.floor(Math.random() * chars.length)], x, y - fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+            ctx.globalAlpha = 1;
+            rafRef.current = requestAnimationFrame(draw);
+        };
+        rafRef.current = requestAnimationFrame(draw);
+        return () => { cancelAnimationFrame(rafRef.current); window.removeEventListener("resize", resize); };
+    }, [active]);
+
+    if (!active) return null;
+    return <canvas ref={canvasRef} className="absolute inset-0 z-10 pointer-events-none opacity-20" />;
+}
+
+// ─── Segment row ──────────────────────────────────────────────────────────────
+function SegmentRow({ segments }: { segments: Segment[] }) {
+    return (
+        <span className="font-mono">
+            {segments.map((seg, i) => {
+                const style = { color: seg.color ?? C.white, fontWeight: seg.bold ? 700 : 400 };
+                if (seg.href) return (
+                    <a key={i} href={seg.href} target="_blank" rel="noopener noreferrer"
+                        style={{ ...style, textDecoration: "underline", cursor: "pointer" }}
+                        onClick={(e) => e.stopPropagation()} className="hover:opacity-80 transition-opacity">
+                        {seg.text}
+                    </a>
+                );
+                return <span key={i} style={style}>{seg.text}</span>;
+            })}
+        </span>
+    );
+}
+
+// ─── DM Form ──────────────────────────────────────────────────────────────────
+interface DmFormProps {
+    theme: ThemeName;
+    onSent: (success: boolean) => void;
+    onCancel: () => void;
+}
+
+function DmForm({ theme, onSent, onCancel }: DmFormProps) {
+    const T = THEMES[theme];
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [message, setMessage] = useState("");
+    const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
+    const [error, setError] = useState("");
+    const nameRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => { nameRef.current?.focus(); }, []);
+
+    const fieldStyle = {
+        background: "rgba(255,255,255,0.04)",
+        border: `1px solid rgba(${T.border},0.15)`,
+        color: T.bright,
+        caretColor: T.green,
+        outline: "none",
+    };
+
+    const labelStyle = { color: T.blue, fontSize: "11px", fontFamily: "monospace", letterSpacing: "0.08em" };
+    const inputClass = "w-full rounded px-3 py-2 text-sm font-mono placeholder:opacity-30 focus:ring-0 transition-colors";
+
+    const validate = () => {
+        if (!name.trim()) return "Name is required.";
+        if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Valid email is required.";
+        if (!message.trim()) return "Message cannot be empty.";
+        return "";
+    };
+
+    const handleSend = async (e: FormEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const err = validate();
+        if (err) { setError(err); return; }
+        setError(""); setStatus("sending");
+
+        try {
+            const res = await fetch("https://formspree.io/f/YOUR_FORM_ID", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify({ name, email, message, _subject: `Terminal DM from ${name}` }),
+            });
+            if (res.ok) {
+                setStatus("done");
+                setTimeout(() => onSent(true), 1200);
+            } else {
+                throw new Error("Server error");
+            }
+        } catch {
+            setError("Failed to send. Please try emailing directly.");
+            setStatus("idle");
+        }
+    };
+
+    return (
+        <AnimatePresence>
+            <motion.form
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.25 }}
+                onSubmit={handleSend}
+                onClick={(e) => e.stopPropagation()}
+                className="ml-1 mt-3 mb-1 rounded-lg p-4 space-y-3"
+                style={{
+                    background: `rgba(255,255,255,0.025)`,
+                    border: `1px solid rgba(${T.border},0.12)`,
+                    maxWidth: "480px",
+                }}
+            >
+                {/* Name */}
+                <div className="space-y-1">
+                    <label style={labelStyle}>NAME</label>
+                    <input
+                        ref={nameRef}
+                        type="text" value={name}
+                        onChange={(e) => { setName(e.target.value); setError(""); }}
+                        placeholder="Your name"
+                        style={fieldStyle} className={inputClass}
+                        disabled={status !== "idle"}
+                    />
+                </div>
+
+                {/* Email */}
+                <div className="space-y-1">
+                    <label style={labelStyle}>EMAIL</label>
+                    <input
+                        type="email" value={email}
+                        onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                        placeholder="your@email.com"
+                        style={fieldStyle} className={inputClass}
+                        disabled={status !== "idle"}
+                    />
+                </div>
+
+                {/* Message */}
+                <div className="space-y-1">
+                    <label style={labelStyle}>MESSAGE</label>
+                    <textarea
+                        value={message}
+                        onChange={(e) => { setMessage(e.target.value); setError(""); }}
+                        placeholder="What's on your mind?"
+                        rows={4}
+                        style={{ ...fieldStyle, resize: "vertical" }}
+                        className={inputClass}
+                        disabled={status !== "idle"}
+                    />
+                    <div className="text-right font-mono" style={{ color: T.dim, fontSize: "10px" }}>
+                        {message.length} / 500
+                    </div>
+                </div>
+
+                {/* Error */}
+                {error && (
+                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        className="text-xs font-mono" style={{ color: T.red }}>
+                        ✗  {error}
+                    </motion.p>
+                )}
+
+                {/* Success */}
+                {status === "done" && (
+                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        className="text-xs font-mono" style={{ color: T.green }}>
+                        ✓  Message sent! I'll get back to you soon.
+                    </motion.p>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-3 pt-1">
+                    <button
+                        type="submit"
+                        disabled={status !== "idle"}
+                        className="flex items-center gap-2 px-4 py-2 rounded text-xs font-mono font-bold tracking-wider transition-all disabled:opacity-50"
+                        style={{ background: T.green, color: T.bg }}
+                    >
+                        {status === "sending"
+                            ? <><Loader2 className="w-3 h-3 animate-spin" /> SENDING…</>
+                            : status === "done"
+                                ? <><Check className="w-3 h-3" /> SENT</>
+                                : <><Send className="w-3 h-3" /> SEND MESSAGE</>
+                        }
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onCancel(); }}
+                        disabled={status === "sending"}
+                        className="px-3 py-2 rounded text-xs font-mono tracking-wider transition-colors hover:bg-white/10 disabled:opacity-40"
+                        style={{ color: T.dim }}
+                    >
+                        CANCEL
+                    </button>
+
+                    <span className="text-[10px] font-mono ml-auto" style={{ color: T.dim }}>
+                        ESC to cancel
+                    </span>
+                </div>
+            </motion.form>
+        </AnimatePresence>
+    );
+}
+
+// ─── Main Terminal ────────────────────────────────────────────────────────────
+export default function Terminal({ onClose, initialCommand }: TerminalProps) {
+    const [input, setInput] = useState("");
+    const [isTyping, setIsTyping] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const [theme, setTheme] = useState<ThemeName>("onedark");
+    const [matrixActive, setMatrixActive] = useState(false);
+    const [soundOn, setSoundOn] = useState(true);
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [showDmForm, setShowDmForm] = useState(false);
+
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const bottomRef = useRef<HTMLDivElement>(null);
+    const commandHistoryRef = useRef<string[]>([]);
+    const inputBeforeHistoryRef = useRef<string>("");
+    const [historyIndex, setHistoryIndex] = useState(-1);
+    const initialCommandExecuted = useRef(false);
+
+    C = THEMES[theme];
+
+    const makeLog = useCallback((type: LogType, rows: Segment[][]): Log[] =>
+        rows.map((segments, i) => ({
+            id: `${Date.now()}-${i}-${Math.random()}`,
+            type, segments,
+        })), []);
+
+    const [history, setHistory] = useState<Log[]>(() => [
+        ...makeLog("system", [
+            [s("Sarthak_Parulekar ", C.cyan, true), s("[Version 18.0.4]", C.dim)],
+            [{ text: `(c) ${new Date().getFullYear()} Sarthak Parulekar. All rights reserved.`, color: C.dim, dim: true }],
+            [s(" ")],
+        ]),
+        ...makeLog("output", [
+            [s("Welcome! Type ", C.white), s("help", C.green, true), s(" to see commands, ", C.white), s("exit", C.red), s(" to close.", C.white)],
+            [s(" ")],
+        ]),
+    ]);
+
+    // Persist / restore theme
+    useEffect(() => { try { localStorage.setItem("terminal-theme", theme); } catch { /**/ } }, [theme]);
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem("terminal-theme") as ThemeName | null;
+            if (saved && THEMES[saved]) setTheme(saved);
+        } catch { /**/ }
+    }, []);
+
+    // Escape → cancel DM form first, then close terminal
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                if (showDmForm) { setShowDmForm(false); inputRef.current?.focus(); }
+                else onClose();
+            }
+        };
+        window.addEventListener("keydown", handler);
+        return () => window.removeEventListener("keydown", handler);
+    }, [onClose, showDmForm]);
+
+    // Lock body scroll
+    useEffect(() => {
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = ""; };
+    }, []);
+
+    // Auto-scroll — always scroll to the very bottom
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [history, isTyping, showDmForm, suggestions]);
+
+    useEffect(() => { soundEnabled = soundOn; }, [soundOn]);
+
+    const getPrompt = () => (
+        <span className="font-mono shrink-0 select-none">
+            <span style={{ color: C.blue }}>~/portfolio</span>
+            <span style={{ color: C.purple }}> ❯ </span>
+        </span>
+    );
+
+    const appendOutput = async (rows: Segment[][], type: LogType) => {
+        for (let i = 0; i < rows.length; i++) {
+            await new Promise((r) => setTimeout(r, 80));
+            setHistory((prev) => [...prev, { id: `out-${Date.now()}-${i}`, type, segments: rows[i] }]);
+        }
+        setHistory((prev) => [...prev, { id: `spacer-${Date.now()}`, type: "system", segments: [s(" ")] }]);
+    };
+
+    const processCommand = useCallback(async (cmd: string) => {
+        const trimmed = cmd.trim();
+        if (!trimmed) return;
+
+        commandHistoryRef.current = [trimmed, ...commandHistoryRef.current.filter((c) => c !== trimmed)].slice(0, 100);
+        setHistoryIndex(-1);
+
+        const inputLog: Log = { id: `inp-${Date.now()}`, type: "input", segments: [s(trimmed, C.bright)] };
+        setHistory((prev) => [...prev, inputLog]);
+        setInput(""); setIsTyping(true); setSuggestions([]);
+        playReturn();
+        await new Promise((r) => setTimeout(r, 350));
+
+        let rows: Segment[][] = [];
+        let type: LogType = "output";
+        const parts = trimmed.split(/\s+/);
+        const baseCmd = parts[0].toLowerCase();
+        const args = parts.slice(1).join(" ");
+
+        switch (baseCmd) {
+            case "help": rows = buildHelp(); break;
+            case "about": rows = buildAbout(); break;
+            case "contact": rows = buildContact(); break;
+            case "stack": rows = buildStack(); break;
+            case "projects": rows = buildProjects(); break;
+            case "whoami": rows = buildWhoami(); break;
+            case "neofetch": rows = buildNeofetch(); break;
+            case "date": rows = buildDate(); break;
+            case "ls": rows = buildLs(); break;
+            case "cat": rows = buildCat(args); break;
+            case "echo": rows = buildEcho(args); break;
+            case "resume": rows = buildResumeDownload(); break;
+            case "theme":
+                if (args && THEMES[args as ThemeName]) {
+                    setTheme(args as ThemeName); rows = buildThemeApplied(args as ThemeName);
+                } else { rows = buildThemeList(); }
+                break;
+            case "matrix":
+                setMatrixActive((p) => !p);
+                rows = [[s(matrixActive ? "☐ Matrix rain deactivated" : "☑ Matrix rain activated", C.green, true)]];
+                break;
+            case "sound":
+                setSoundOn((p) => !p); rows = buildSoundToggled(!soundOn); break;
+            case "sudo": case "sudo su":
+                rows = buildSudo(); type = "error"; break;
+            case "dm":
+                rows = buildDmIntro();
+                await appendOutput(rows, type);
+                setIsTyping(false);
+                setShowDmForm(true);
+                return;
+            case "clear":
+                setHistory([]); setShowDmForm(false); setIsTyping(false); return;
+            case "exit":
+                onClose(); return;
+            default:
+                rows = buildError(baseCmd); type = "error";
+        }
+
+        await appendOutput(rows, type);
+        setIsTyping(false);
+        setTimeout(() => inputRef.current?.focus(), 10);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [matrixActive, soundOn, onClose]);
+
+    useEffect(() => {
+        // RESET the ref when the component mounts or initialCommand changes
+        initialCommandExecuted.current = false;
+    }, []); // This ensures the command can run again every time the terminal is opened
+
+
+    // ─── Auto-type and execute initialCommand ─────────────────────────────────
+    useEffect(() => {
+        if (!initialCommand || initialCommandExecuted.current) return;
+        initialCommandExecuted.current = true;
+
+        const command = initialCommand;
+        let currentIndex = 0;
+
+        // Start typing after a short delay to let the terminal mount
+        const startDelay = setTimeout(() => {
+            const typeInterval = setInterval(() => {
+                currentIndex++;
+                setInput(command.slice(0, currentIndex));
+                playTick();
+
+                if (currentIndex >= command.length) {
+                    clearInterval(typeInterval);
+                    // After finishing typing, wait a beat then "submit"
+                    setTimeout(() => {
+                        setInput("");
+                        processCommand(command);
+                    }, 400);
+                }
+            }, 80); // 80ms per character for a nice typing effect
+        }, 600);
+
+        return () => {
+            clearTimeout(startDelay);
+        };
+    }, [initialCommand, processCommand]);
+
+    const handleSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        if (!isTyping && !showDmForm && input.trim()) processCommand(input);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Tab") {
+            e.preventDefault();
+            if (!input.trim()) return;
+            const partial = input.trim().toLowerCase();
+            const matches = COMMANDS.filter((c) => c.startsWith(partial));
+            if (matches.length === 1) { setInput(matches[0] + " "); playTick(); }
+            else if (matches.length > 1) {
+                const commonPrefix = matches.reduce((prefix, cmd) => {
+                    let i = 0;
+                    while (i < prefix.length && i < cmd.length && prefix[i] === cmd[i]) i++;
+                    return prefix.slice(0, i);
+                }, matches[0]);
+                if (commonPrefix.length > partial.length) { setInput(commonPrefix); playTick(); }
+                else {
+                    setHistory((prev) => [...prev, { id: `tab-${Date.now()}`, type: "system", segments: [s(matches.join("  "), C.dim)] }]);
+                }
+            }
+            return;
+        }
+        if (e.key === "ArrowUp") {
+            e.preventDefault();
+            const hist = commandHistoryRef.current; if (!hist.length) return;
+            if (historyIndex === -1) inputBeforeHistoryRef.current = input;
+            const newIdx = Math.min(historyIndex + 1, hist.length - 1);
+            setHistoryIndex(newIdx); setInput(hist[newIdx]);
+            setTimeout(() => { if (inputRef.current) { inputRef.current.selectionStart = inputRef.current.selectionEnd = hist[newIdx].length; } }, 0);
+            playTick(); return;
+        }
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (historyIndex <= 0) { setHistoryIndex(-1); setInput(inputBeforeHistoryRef.current); return; }
+            const newIdx = historyIndex - 1;
+            setHistoryIndex(newIdx); setInput(commandHistoryRef.current[newIdx]);
+            setTimeout(() => { if (inputRef.current) { inputRef.current.selectionStart = inputRef.current.selectionEnd = commandHistoryRef.current[newIdx].length; } }, 0);
+            playTick(); return;
+        }
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value; setInput(val);
+        const parts = val.trim().split(/\s+/);
+        if (parts.length === 1 && parts[0] && !COMMANDS.includes(parts[0].toLowerCase()))
+            setSuggestions(findSuggestions(parts[0]));
+        else setSuggestions([]);
+        if (val.length > 0) playTick();
+    };
+
+    const handleDmSent = (success: boolean) => {
+        setShowDmForm(false);
+        const rows: Segment[][] = success
+            ? [
+                [s("✓ ", C.green), s("Message delivered successfully!", C.green, true)],
+                [s("  I'll get back to you soon. ", C.dim), s("— Sarthak", C.cyan)],
+            ]
+            : [[s("✗ ", C.red), s("Delivery failed. Please email directly.", C.red)]];
+        setHistory((prev) => [...prev, ...rows.map((segments, i) => ({ id: `dm-res-${i}`, type: "output" as LogType, segments }))]);
+        setTimeout(() => inputRef.current?.focus(), 50);
+    };
+
+    const handleDmCancel = () => {
+        setShowDmForm(false);
+        setHistory((prev) => [...prev, { id: `dm-cancel-${Date.now()}`, type: "system", segments: [s("  DM cancelled.", C.dim)] }]);
+        setTimeout(() => inputRef.current?.focus(), 50);
+    };
+
+    const handleCopyEmail = () => {
+        navigator.clipboard.writeText("sarthakdev143.official@gmail.com");
+        setCopied(true); setTimeout(() => setCopied(false), 2000);
+    };
+
+    const suggestionVisible = suggestions.length > 0 && input && !showDmForm;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            onClick={onClose}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm cursor-pointer"
+            style={{ background: `${THEMES[theme].bg}cc` }}
+        >
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="relative w-full max-w-3xl h-[65vh] min-h-105 rounded-xl shadow-2xl flex flex-col overflow-hidden will-change-transform cursor-default"
+                style={{
+                    background: THEMES[theme].bg,
+                    borderColor: `rgba(${THEMES[theme].border},0.1)`,
+                    borderWidth: 1,
+                }}
+                onClick={(e) => { e.stopPropagation(); if (!isTyping && !showDmForm) inputRef.current?.focus(); }}
+            >
+                <MatrixRain active={matrixActive} />
+
+                {/* CRT overlay */}
+                <div className="absolute inset-0 pointer-events-none opacity-[0.03] z-20"
+                    style={{
+                        backgroundImage: "linear-gradient(rgba(255,255,255,0) 50%, rgba(0,0,0,0.25) 50%), linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06))",
+                        backgroundSize: "100% 4px, 3px 100%",
+                    }}
+                />
+
+                {/* ── Header ── */}
+                <div className="flex items-center justify-between px-4 py-3 border-b select-none relative z-30"
+                    style={{ background: THEMES[theme].headerBg, borderColor: `rgba(${THEMES[theme].border},0.05)` }}>
+                    <div className="flex items-center gap-3">
+                        <TerminalIcon className="w-4 h-4" style={{ color: C.dim }} />
+                        <span className="text-xs font-mono font-medium tracking-wider">
+                            <span style={{ color: C.blue }}>root</span>
+                            <span style={{ color: C.dim }}>@</span>
+                            <span style={{ color: C.green }}>sarthak_engine</span>
+                            <span style={{ color: C.dim }}>:~</span>
+                        </span>
+                        {matrixActive && <span className="text-[10px] font-mono animate-pulse" style={{ color: C.green }}>⬡ MATRIX</span>}
+                        {showDmForm && <span className="text-[10px] font-mono animate-pulse" style={{ color: C.cyan }}>✉ DM MODE</span>}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button onClick={(e) => { e.stopPropagation(); setSoundOn((p) => !p); }}
+                            className="p-1.5 cursor-pointer rounded hover:bg-white/10 transition-colors" style={{ color: C.dim }}>
+                            {soundOn ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleCopyEmail(); }}
+                            className="group cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded hover:bg-white/10 transition-colors border"
+                            style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.05)" }}>
+                            {copied ? <Check className="w-3.5 h-3.5" style={{ color: C.green }} /> : <Copy className="w-3.5 h-3.5" style={{ color: C.dim }} />}
+                            <span className="text-[10px] font-mono uppercase tracking-widest transition-colors" style={{ color: C.dim }}>
+                                {copied ? "Copied" : "Copy Email"}
+                            </span>
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onClose(); }}
+                            className="p-1.5 cursor-pointer rounded hover:bg-red-500/20 transition-colors" style={{ color: C.dim }}>
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* ── Scrollable output area ── */}
+                <div
+                    ref={scrollRef}
+                    onWheel={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
+                    className="flex-1 overflow-y-auto relative z-30"
+                    style={{ scrollbarWidth: "thin", scrollbarColor: `${C.dim} transparent` }}
+                >
+                    <div className="px-5 py-4 space-y-0.75">
+                        {/* History logs */}
+                        {history.map((log) =>
+                            log.type === "input" ? (
+                                <div key={log.id} className="flex items-center gap-1 mt-2">
+                                    {getPrompt()}
+                                    <SegmentRow segments={log.segments} />
+                                </div>
+                            ) : (
+                                <div key={log.id} className="pl-1">
+                                    <SegmentRow segments={log.segments} />
+                                </div>
+                            )
+                        )}
+
+                        {/* Inline DM form */}
+                        {showDmForm && (
+                            <DmForm theme={theme} onSent={handleDmSent} onCancel={handleDmCancel} />
+                        )}
+
+                        {/* Input row — always rendered so it anchors the scroll */}
+                        {!showDmForm && (
+                            <form onSubmit={handleSubmit} className="flex items-center gap-1 mt-2">
+                                {getPrompt()}
+                                <input
+                                    ref={inputRef}
+                                    type="text" value={input}
+                                    onChange={handleInputChange}
+                                    onKeyDown={handleKeyDown}
+                                    disabled={isTyping}
+                                    autoFocus autoComplete="off" spellCheck={false}
+                                    className="flex-1 bg-transparent outline-none border-none shadow-none focus:ring-0 p-0 disabled:opacity-40 font-mono text-sm"
+                                    style={{ color: C.bright, caretColor: C.green }}
+                                />
+                                {isTyping && (
+                                    <span className="text-xs font-mono animate-pulse shrink-0" style={{ color: C.dim }}>
+                                        processing…
+                                    </span>
+                                )}
+                            </form>
+                        )}
+
+                        {/* ── Suggestions ── */}
+                        <AnimatePresence>
+                            {suggestionVisible && (
+                                <motion.div
+                                    key="suggestions"
+                                    initial={{ opacity: 0, y: -4 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -4 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="pl-30 mt-1 text-[11px] font-mono flex items-center gap-1 flex-wrap"
+                                    style={{ color: C.dim }}
+                                >
+                                    <span>Did you mean:</span>
+                                    {suggestions.map((sug, i) => (
+                                        <span key={sug} className="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setInput(sug + " "); setSuggestions([]); inputRef.current?.focus(); }}
+                                                className="hover:underline cursor-pointer"
+                                                style={{ color: C.green }}
+                                            >
+                                                {sug}
+                                            </button>
+                                            {i < suggestions.length - 1 && <span style={{ color: C.dim }}>,</span>}
+                                        </span>
+                                    ))}
+                                    <span>?</span>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <div
+                            ref={bottomRef}
+                            style={{ height: suggestionVisible ? "5rem" : "3rem" }}
+                            aria-hidden
+                        />
+                    </div>
+                </div>
+
+                {/* ── Footer ── */}
+                <div
+                    className="flex items-center justify-between px-4 py-1.5 border-t text-[10px] font-mono relative z-30 select-none"
+                    style={{ background: THEMES[theme].headerBg, borderColor: `rgba(${THEMES[theme].border},0.05)`, color: C.dim }}
+                >
+                    <span><span style={{ color: C.green }}>●</span> {theme.toUpperCase()}</span>
+                    <span>{soundOn ? "🔊" : "🔇"} SOUND {soundOn ? "ON" : "OFF"}</span>
+                    <span>TAB: complete · ↑↓: history · <span style={{ color: C.cyan }}>dm</span>: message me</span>
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+}
+
+
+================================================================================
+FILE: app\globals.css
+================================================================================
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-brand: #00BFFF;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  /* Global Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+    border-left: 1px solid var(--border);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--muted-foreground);
+    border-radius: 4px;
+    border: 2px solid var(--background);
+    /* Creates a padding effect */
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+    /* Pops with your accent color on hover */
+  }
+
+  /* Ultra-thin scrollbar specifically for the Terminal */
+  .scrollbar-ide::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-ide::-webkit-scrollbar-track {
+    background: transparent;
+    border-left: none;
+  }
+
+  .scrollbar-ide::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    /* zinc-700 */
+    border-radius: 3px;
+    border: none;
+  }
+
+  .scrollbar-ide::-webkit-scrollbar-thumb:hover {
+    background: #52525b;
+    /* zinc-600 */
+  }
+}
+
+================================================================================
+FILE: app\layout.tsx
+================================================================================
+
+// app/layout.tsx
+import type { Metadata } from "next";
+import { JetBrains_Mono, Geist } from "next/font/google";
+import SmoothScroll from "@/components/SmoothScroll";
+import "./globals.css";
+import { cn } from "@/lib/utils";
+import HUD from "@/components/HUD";
+import Noise from "@/components/Noise";
+// import Preloader from "@/components/Preloader";
+import { SITE_CONFIG } from "@/lib/config";
+
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
+
+export const metadata: Metadata = {
+  title: SITE_CONFIG.title,
+  description: SITE_CONFIG.description,
+  openGraph: {
+    title: SITE_CONFIG.title,
+    description: SITE_CONFIG.description,
+    url: "https://sarthakdev.vercel.app", 
+    siteName: SITE_CONFIG.name,
+    images: [
+      {
+        url: "/og-image.png", // add a 1200×630 image to /public
+        width: 1200,
+        height: 630,
+        alt: SITE_CONFIG.title,
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_CONFIG.title,
+    description: SITE_CONFIG.description,
+    images: ["/og-image.png"],
+  },
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className={cn(jetbrainsMono.variable, geist.variable, "dark")}>
+      <body className="antialiased bg-[#0f0f11] text-white">
+        <noscript>
+          <div style={{ padding: "2rem", fontFamily: "monospace", color: "var(--color-brand)", background: "#0f0f11" }}>
+            This portfolio requires JavaScript to run. Please enable it in your browser settings.
+          </div>
+        </noscript>
+        <SmoothScroll>
+          <Noise />
+          <HUD />
+          <main>{children}</main>
+        </SmoothScroll>
+      </body>
+    </html>
+  );
+}
+
+
+================================================================================
+FILE: app\page.tsx
+================================================================================
+
+
+import Hero from "@/components/HeroSection";
+import CurvedLoop from "@/components/CurvedLoop";
+// import ScrollReveal from "@/components/ScrollReveal";
+import ProjectGallery from "@/components/ProjectGallery";
+import ExperienceShowcase from "@/components/ExperienceShowcase";
+
+export default function Home() {
+  return (
+    <div className="relative w-full overflow-hidden">
+      {/* 1. Hero Introduction Entrypoint */}
+      <Hero />
+
+      {/* 2. Interactive Ambient Separator Belt */}
+      <div className="py-8 bg-[#0f0f11] overflow-hidden">
+        <CurvedLoop
+          marqueeText="INGENIOUS BUILDER // SARTHAK PARULEKAR // "
+          speed={2.5}
+          interactive={true}
+        />
+      </div>
+
+      {/* 3. Active Experience Showcase Circuit Pipeline */}
+      <ExperienceShowcase />
+
+      {/* 4. Production Application Showcases & Interactive Console Terminal */}
+      <ProjectGallery />
+    </div>
+  );
+}
+
+================================================================================
+FILE: package.json
+================================================================================
+
+{
+  "name": "portfolio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@studio-freight/lenis": "^1.0.42",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "gsap": "^3.15.0",
+    "lucide-react": "^1.16.0",
+    "motion": "^12.38.0",
+    "next": "16.2.6",
+    "radix-ui": "^1.4.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "shadcn": "^4.7.0",
+    "tailwind-merge": "^3.6.0",
+    "tw-animate-css": "^1.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+
